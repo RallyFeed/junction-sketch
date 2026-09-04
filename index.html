@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Junction sketch — prototype</title>
+<style>
+:root{
+--navy:#01143C; --raised:#0F2452; --raised2:#1A3268; --tan:#D0A27C; --blue:#265BCA;
+--paper:#F4F4F5; --muted:#9AA3B2; --muted2:#6B7484; --danger:#EF2D56;
+--pill:1024px; --sheet:24px;
+--font: Inter, -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--navy);color:var(--paper);font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body{display:flex;flex-direction:column;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+.stage{position:relative;flex:1;min-height:0;margin:8px 8px 0;border-radius:var(--sheet);overflow:hidden;background:var(--paper)}
+#c{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.float{position:absolute;display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:var(--pill);background:rgba(255,255,255,.94);color:var(--navy);font:600 15px var(--font);border:0;cursor:pointer;box-shadow:0 0 0 1px rgba(1,20,60,.08),0 6px 16px rgba(1,20,60,.14)}
+.float:active{transform:scale(.97)}
+#back{top:12px;left:12px}
+#done{top:12px;right:12px;background:var(--tan)}
+#hint{position:absolute;left:12px;right:12px;bottom:12px;padding:10px 14px;border-radius:16px;background:rgba(1,20,60,.86);color:var(--paper);font-size:14px;line-height:1.35;pointer-events:none}
+#toast{position:absolute;top:66px;left:50%;transform:translateX(-50%);height:38px;padding:0 6px 0 16px;display:flex;align-items:center;gap:10px;border-radius:var(--pill);background:var(--navy);color:var(--paper);font:600 13px var(--font);border:0;opacity:0;pointer-events:none;transition:opacity .18s;white-space:nowrap}
+#toast.show{opacity:1;pointer-events:auto}
+#toast b{background:var(--tan);color:var(--navy);border-radius:var(--pill);padding:6px 12px;font-weight:700}
+.types{display:flex;gap:8px;padding:0 8px;height:0;overflow:hidden;transition:height .18s}
+.types.show{height:70px;padding-top:10px}
+.types button{flex:1;height:60px;border-radius:16px;border:2px solid transparent;background:var(--raised);color:var(--muted);font:600 13px var(--font);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.types button.on{background:var(--raised2);border-color:var(--tan);color:var(--paper)}
+.types button svg{width:40px;height:8px;display:block;overflow:visible}
+.types button.act{flex:.8;color:var(--paper)}
+.types button.del{flex:.55;color:var(--danger);font-size:18px}
+.bar{display:flex;gap:8px;padding:10px 8px 6px}
+.bar button{flex:1;height:64px;border-radius:18px;border:2px solid transparent;background:var(--raised);color:var(--muted);font:600 15px var(--font);cursor:pointer}
+.bar button.on{background:var(--raised2);border-color:var(--tan);color:var(--paper)}
+.bar button:active,.types button:active{transform:scale(.97)}
+.bar button:disabled{opacity:.35}
+.sub{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 16px calc(12px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted)}
+.sub label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.sub input{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:11px;background:var(--raised2);position:relative;outline:0;margin:0;cursor:pointer}
+.sub input:checked{background:var(--tan)}
+.sub input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--paper);transition:left .15s}
+.sub input:checked::after{left:21px;background:var(--navy)}
+#sheet{position:fixed;inset:0;background:rgba(1,20,60,.6);display:none;align-items:flex-end;justify-content:center;z-index:10}
+#sheet.show{display:flex}
+.panel{width:100%;max-width:560px;background:var(--navy);border-radius:var(--sheet) var(--sheet) 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--raised2);margin:0 auto 12px}
+.panel h2{margin:0 0 4px;font-size:20px;font-weight:700}
+.panel p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.4}
+.cell{display:grid;grid-template-columns:76px 140px 1fr;background:var(--paper);color:var(--navy);border-radius:16px;overflow:hidden;min-height:140px}
+.cell>div{padding:10px;border-right:1px solid #CFCFD4}
+.cell>div:last-child{border-right:0}
+.dist{display:flex;flex-direction:column;justify-content:space-between;font-variant-numeric:tabular-nums;font-weight:700;font-size:18px}
+.dist small{display:block;font-size:10px;color:#7B7F8A;font-weight:500}
+.tulip{display:flex;align-items:center;justify-content:center}
+.notes{font-size:12px;line-height:1.4}
+.notes em{display:block;color:#7B7F8A;font-style:normal;margin-top:6px;font-size:11px}
+textarea{width:100%;height:118px;margin-top:12px;background:var(--raised);color:var(--paper);border:0;border-radius:12px;padding:10px;font:11.5px ui-monospace,Menlo,Consolas,monospace;resize:vertical;-webkit-user-select:text;user-select:text}
+.row{display:flex;gap:8px;margin-top:12px}
+.row button{flex:1;height:52px;border-radius:16px;border:0;font:700 15px var(--font);cursor:pointer}
+.primary{background:var(--blue);color:var(--paper)}
+.ghost{background:var(--raised);color:var(--paper)}
+:focus-visible{outline:2px solid var(--tan);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+<canvas id="c"></canvas>
+<button class="float" id="back" type="button">‹ WP 14</button>
+<button class="float" id="done" type="button">Done</button>
+<button id="toast" type="button"><span id="toastText">Converted</span><b>Undo</b></button>
+<div id="hint">Draw your route: from where you come to where you go. Then lift.</div>
+</div>
+<div class="types" id="types">
+<button type="button" data-type="tarmac"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>Tarmac</button>
+<button type="button" data-type="gravel"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 6"/></svg>Gravel</button>
+<button type="button" data-type="track"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 7"/></svg>Track</button>
+<button type="button" class="act" id="split">Split</button>
+<button type="button" class="del" id="del" aria-label="Delete road">✕</button>
+</div>
+<div class="bar">
+<button type="button" id="pen" class="on">Pen</button>
+<button type="button" id="edit">Edit</button>
+<button type="button" id="undo">Undo</button>
+<button type="button" id="clear">Clear</button>
+</div>
+<div class="sub">
+<label><input type="checkbox" id="snap" checked>Snap to straight lines</label>
+<label><input type="checkbox" id="ink">Show raw ink</label>
+</div>
+<div id="sheet">
+<div class="panel">
+<div class="grab"></div>
+<h2>Roadbook cell</h2>
+<p>What the desktop receives: the tulip as vectors, road types per section, and the raw ink kept for reference.</p>
+<div class="cell">
+<div class="dist"><span>12.40<small>total</small></span><span>0.85<small>from WP 13</small></span></div>
+<div class="tulip"><canvas id="mini" width="132" height="132" style="width:120px;height:120px"></canvas></div>
+<div class="notes" id="notes"></div>
+</div>
+<textarea id="json" readonly spellcheck="false"></textarea>
+<div class="row">
+<button type="button" class="ghost" id="close">Back to sketch</button>
+<button type="button" class="primary" id="copy">Copy JSON</button>
+</div>
+</div>
+</div>
+<script id="model">
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function perpDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y;const L=dx*dx+dy*dy;if(L===0)return dist(p,a);const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));}
+function rdp(pts,eps){if(pts.length<3)return pts.slice();let maxD=0,idx=0;const a=pts[0],b=pts[pts.length-1];for(let i=1;i<pts.length-1;i++){const d=perpDist(pts[i],a,b);if(d>maxD){maxD=d;idx=i;}}if(maxD>eps){const l=rdp(pts.slice(0,idx+1),eps),r=rdp(pts.slice(idx),eps);return l.slice(0,-1).concat(r);}return [a,b];}
+function isStraight(pts){const a=pts[0],b=pts[pts.length-1];const chord=dist(a,b);let maxD=0;for(const p of pts)maxD=Math.max(maxD,perpDist(p,a,b));return maxD<Math.max(10,chord*0.06);}
+function snapAngle(a,b,step){const s=(step||15)*Math.PI/180;const ang=Math.atan2(b.y-a.y,b.x-a.x);const na=Math.round(ang/s)*s;const L=dist(a,b);return {x:a.x+Math.cos(na)*L,y:a.y+Math.sin(na)*L};}
+function nearestOnPolyline(p,pts){let best={d:Infinity,q:null,seg:0,t:0};for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];const dx=b.x-a.x,dy=b.y-a.y;const L=dx*dx+dy*dy;const t=L===0?0:Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));const q={x:a.x+t*dx,y:a.y+t*dy};const d=dist(p,q);if(d<best.d)best={d,q,seg:i,t};}return best;}
+function segIntersect(a,b,c,d){const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;const den=rx*sy-ry*sx;if(Math.abs(den)<1e-9)return null;const t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den;const u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den;if(t>0.03&&t<0.97&&u>0.03&&u<0.97)return {t,u,x:a.x+t*rx,y:a.y+t*ry};return null;}
+function turn(a,b,c){const a1=Math.atan2(b.y-a.y,b.x-a.x),a2=Math.atan2(c.y-b.y,c.x-b.x);let d=Math.abs(a2-a1);if(d>Math.PI)d=2*Math.PI-d;return d;}
+function strokeLength(pts){let L=0;for(let i=1;i<pts.length;i++)L+=dist(pts[i-1],pts[i]);return L;}
+const SNAP_R=28, NODE_R=22, MIN_LEN=20, RDP_EPS=7, REUSE_R=12;
+let state={pts:{},roads:[],raw:[]};
+let nextId=1;
+const opts={snap:true,ink:false};
+const history=[];
+const P=id=>state.pts[id];
+function newPt(x,y){const id='p'+(nextId++);state.pts[id]={x,y};return id;}
+function roadPts(r){return r.p.map(P);}
+function routePieces(){return state.roads.filter(r=>r.route);}
+function routeStart(){const rp=routePieces();return rp.length?P(rp[0].p[0]):null;}
+function routeEnd(){const rp=routePieces();if(!rp.length)return null;const l=rp[rp.length-1];return {p:P(l.p[l.p.length-1]),prev:P(l.p[l.p.length-2])};}
+function snapshot(){history.push(JSON.stringify({state,nextId}));if(history.length>80)history.shift();}
+function undo(){if(!history.length)return false;const s=JSON.parse(history.pop());state=s.state;nextId=s.nextId;return true;}
+function reset(){snapshot();state={pts:{},roads:[],raw:[]};}
+function defaultType(){const rp=routePieces();return rp.length?rp[rp.length-1].type:'tarmac';}
+function commitStroke(raw){
+if(raw.length<2||strokeLength(raw)<MIN_LEN) return null;
+snapshot();
+state.raw.push(raw.map(p=>({x:+p.x.toFixed(1),y:+p.y.toFixed(1)})));
+let pts=rdp(raw,RDP_EPS);
+if(isStraight(pts)) pts=[pts[0],pts[pts.length-1]];
+const isRoute=routePieces().length===0;
+const ids=pts.map(p=>newPt(p.x,p.y));
+const shared=[false,false];
+if(!isRoute){
+[0,ids.length-1].forEach((end,k)=>{
+const p=P(ids[end]);let best=null;
+for(const r of state.roads){const n=nearestOnPolyline(p,roadPts(r));if(n.d<SNAP_R&&(!best||n.d<best.n.d))best={r,n};}
+if(!best)return;
+const {r,n}=best;let reuse=null;
+for(const pid of r.p){if(dist(P(pid),n.q)<REUSE_R){reuse=pid;break;}}
+delete state.pts[ids[end]];
+if(reuse){ids[end]=reuse;}else{const nid=newPt(n.q.x,n.q.y);r.p.splice(n.seg+1,0,nid);ids[end]=nid;}
+shared[k]=true;
+});
+}
+if(opts.snap&&ids.length===2&&ids[0]!==ids[1]){
+const a=P(ids[0]),b=P(ids[1]);
+if(shared[0]&&!shared[1])Object.assign(b,snapAngle(a,b));
+else if(!shared[0]&&shared[1])Object.assign(a,snapAngle(b,a));
+else if(!shared[0]&&!shared[1])Object.assign(b,snapAngle(a,b));
+}
+if(!isRoute){
+for(const r of state.roads){
+let found=true,guard=0;
+while(found&&guard++<8){found=false;
+outer:for(let i=0;i<ids.length-1;i++){for(let j=0;j<r.p.length-1;j++){
+if(ids[i]===r.p[j]||ids[i]===r.p[j+1]||ids[i+1]===r.p[j]||ids[i+1]===r.p[j+1])continue;
+const x=segIntersect(P(ids[i]),P(ids[i+1]),P(r.p[j]),P(r.p[j+1]));
+if(x){const nid=newPt(x.x,x.y);ids.splice(i+1,0,nid);r.p.splice(j+1,0,nid);found=true;break outer;}
+}}
+}
+}
+}
+const road={id:'r'+(nextId++),p:ids,type:defaultType(),route:isRoute};
+state.roads.push(road);
+return road;
+}
+function splitRoad(road,pt){
+const pts=roadPts(road);const n=nearestOnPolyline(pt,pts);
+if(n.d>NODE_R)return null;
+if(dist(n.q,pts[0])<REUSE_R||dist(n.q,pts[pts.length-1])<REUSE_R)return null;
+snapshot();
+let idx=-1;for(let i=1;i<road.p.length-1;i++){if(dist(P(road.p[i]),n.q)<REUSE_R){idx=i;break;}}
+if(idx<0){const nid=newPt(n.q.x,n.q.y);road.p.splice(n.seg+1,0,nid);idx=n.seg+1;}
+const a=road.p.slice(0,idx+1),b=road.p.slice(idx);
+road.p=a;
+const r2={id:'r'+(nextId++),p:b,type:road.type,route:road.route};
+state.roads.splice(state.roads.indexOf(road)+1,0,r2);
+return r2;
+}
+function deleteRoad(road){snapshot();state.roads.splice(state.roads.indexOf(road),1);}
+function hitPoint(pt){let best=null;for(const r of state.roads){for(const pid of r.p){const d=dist(P(pid),pt);if(d<NODE_R&&(!best||d<best.d))best={pid,d};}}return best?best.pid:null;}
+function hitRoad(pt){let best=null;for(const r of state.roads){if(r.p.length<2)continue;const n=nearestOnPolyline(pt,roadPts(r));const tol=r.route?20:16;if(n.d<tol&&(!best||n.d<best.n.d))best={r,n};}return best;}
+function exportJSON(){
+const all=[];for(const r of state.roads)for(const pid of r.p)all.push(P(pid));
+if(!all.length)return null;
+const xs=all.map(p=>p.x),ys=all.map(p=>p.y);
+const minX=Math.min(...xs),minY=Math.min(...ys);
+const s=Math.max(1,Math.max(...xs)-minX,Math.max(...ys)-minY);
+const norm=p=>[+((p.x-minX)/s).toFixed(3),+((p.y-minY)/s).toFixed(3)];
+const pc=r=>({type:r.type,points:roadPts(r).map(norm)});
+return {waypoint:'WP 14',coords:'normalized to the longest side, y down',route:routePieces().map(pc),roads:state.roads.filter(r=>!r.route).map(pc),rawStrokes:state.raw.length};
+}
+</script>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),stage=document.getElementById('stage');
+const hint=document.getElementById('hint'),toastEl=document.getElementById('toast'),toastText=document.getElementById('toastText');
+const typesRow=document.getElementById('types');
+const COL={ink:'#01143C',blue:'#265BCA',grey:'#7F8794',dot:'#C9CDD6'};
+let mode='pen',selected=null,splitAt=null;
+let drawing=false,raw=[],pending=null,pendingTimer=null,dragging=null,toastTimer=null;
+let W=0,H=0,dpr=1;
+function resize(){const r=stage.getBoundingClientRect();dpr=Math.min(3,window.devicePixelRatio||1);W=r.width;H=r.height;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);render();}
+new ResizeObserver(resize).observe(stage);
+function dash(type,route){if(type==='gravel')return route?[14,10]:[8,6];if(type==='track')return route?[1,9]:[1,7];return [];}
+function tracePath(pts){
+ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+if(pts.length===2){ctx.lineTo(pts[1].x,pts[1].y);return;}
+for(let i=1;i<pts.length-1;i++){const a=pts[i-1],b=pts[i],c=pts[i+1];
+if(turn(a,b,c)>Math.PI*0.28)ctx.lineTo(b.x,b.y);
+else ctx.quadraticCurveTo(b.x,b.y,(b.x+c.x)/2,(b.y+c.y)/2);}
+const l=pts[pts.length-1];ctx.lineTo(l.x,l.y);
+}
+function polyline(pts){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);}
+function arrow(tip,prev,size,width,color){if(!prev)return;const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash([]);ctx.beginPath();for(const s of[-1,1]){const a=ang+Math.PI+s*0.62;ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x+Math.cos(a)*size,tip.y+Math.sin(a)*size);}ctx.stroke();}
+function drawRoads(scale){
+ctx.lineCap='round';ctx.lineJoin='round';
+for(const r of state.roads){if(r.p.length<2)continue;const pts=roadPts(r);ctx.lineWidth=(r.route?8:4)*scale;ctx.strokeStyle=r===selected?COL.blue:COL.ink;ctx.setLineDash(dash(r.type,r.route).map(v=>v*scale));tracePath(pts);ctx.stroke();}
+ctx.setLineDash([]);
+const s=routeStart(),e=routeEnd();
+if(s){ctx.fillStyle=COL.ink;ctx.beginPath();ctx.arc(s.x,s.y,11*scale,0,Math.PI*2);ctx.fill();}
+if(e)arrow(e.p,e.prev,18*scale,8*scale,routePieces()[routePieces().length-1]===selected?COL.blue:COL.ink);
+}
+function render(){
+ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+ctx.fillStyle=COL.dot;for(let x=24;x<W;x+=24)for(let y=24;y<H;y+=24){ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill();}
+ctx.lineCap='round';ctx.lineJoin='round';
+if(opts.ink){ctx.strokeStyle='rgba(127,135,148,.85)';ctx.lineWidth=3;ctx.setLineDash([7,5]);for(const s of state.raw){polyline(s);ctx.stroke();}ctx.setLineDash([]);}
+drawRoads(1);
+const live=drawing?raw:pending;
+if(live&&live.length>1){ctx.strokeStyle=routePieces().length?'rgba(1,20,60,.55)':'rgba(1,20,60,.75)';ctx.lineWidth=routePieces().length?4:7;ctx.setLineDash([]);polyline(live);ctx.stroke();}
+if(mode==='edit'){
+const seen=new Set();
+const rp=routePieces();const startId=rp.length?rp[0].p[0]:null;
+for(const r of state.roads)for(const pid of r.p){if(seen.has(pid))continue;seen.add(pid);const p=P(pid);const sel=selected&&selected.p.includes(pid);
+if(pid===startId){ctx.beginPath();ctx.arc(p.x,p.y,15,0,Math.PI*2);ctx.lineWidth=2;ctx.strokeStyle=sel?COL.blue:COL.ink;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.stroke();continue;}
+ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=sel?COL.blue:COL.ink;ctx.stroke();}
+if(selected&&splitAt){ctx.beginPath();ctx.arc(splitAt.x,splitAt.y,8,0,Math.PI*2);ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);}
+}
+}
+function pos(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+function commitPending(){if(!pending)return;clearTimeout(pendingTimer);const r=commitStroke(pending);pending=null;if(r)toast(r.route?'Route converted':'Road added');updateUI();render();}
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointerdown',e=>{
+if(e.pointerType==='mouse'&&e.button!==0)return;
+canvas.setPointerCapture(e.pointerId);const p=pos(e);
+if(mode==='pen'){
+if(pending&&dist(pending[pending.length-1],p)<36){clearTimeout(pendingTimer);raw=pending;pending=null;raw.push(p);}
+else{commitPending();raw=[p];}
+drawing=true;render();return;
+}
+const pid=hitPoint(p);
+if(pid){dragging={pid,moved:false};return;}
+const hit=hitRoad(p);
+if(hit){selected=hit.r;splitAt=hit.n.q;}else{selected=null;splitAt=null;}
+updateUI();render();
+});
+canvas.addEventListener('pointermove',e=>{
+if(drawing){const p=pos(e);if(dist(raw[raw.length-1],p)>=1.5){raw.push(p);render();}return;}
+if(dragging){const p=pos(e);if(!dragging.moved){snapshot();dragging.moved=true;}const pt=P(dragging.pid);pt.x=Math.max(0,Math.min(W,p.x));pt.y=Math.max(0,Math.min(H,p.y));if(splitAt&&selected)splitAt=null;render();}
+});
+function up(){
+if(drawing){drawing=false;
+if(strokeLength(raw)<MIN_LEN){const hit=hitRoad(raw[0]);if(hit){selected=hit.r;splitAt=hit.n.q;setMode('edit');}raw=[];render();return;}
+pending=raw;raw=[];pendingTimer=setTimeout(commitPending,280);render();return;}
+if(dragging){dragging=null;render();}
+}
+canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);
+function toast(text){toastText.textContent=text;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2400);}
+toastEl.addEventListener('click',()=>{toastEl.classList.remove('show');doUndo();});
+function doUndo(){if(pending){clearTimeout(pendingTimer);pending=null;}else undo();selected=null;splitAt=null;updateUI();render();}
+function setMode(m){commitPending();mode=m;if(m==='pen'){selected=null;splitAt=null;}updateUI();render();}
+document.getElementById('pen').onclick=()=>setMode('pen');
+document.getElementById('edit').onclick=()=>setMode('edit');
+document.getElementById('undo').onclick=doUndo;
+document.getElementById('clear').onclick=()=>{commitPending();if(!state.roads.length&&!pending)return;reset();selected=null;splitAt=null;toast('Cleared');updateUI();render();};
+document.getElementById('snap').onchange=e=>{opts.snap=e.target.checked;};
+document.getElementById('ink').onchange=e=>{opts.ink=e.target.checked;render();};
+typesRow.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(!selected)return;if(selected.type===b.dataset.type)return;snapshot();selected.type=b.dataset.type;updateUI();render();});
+document.getElementById('split').onclick=()=>{if(!selected||!splitAt)return;const r2=splitRoad(selected,splitAt);if(r2){selected=r2;splitAt=null;toast('Split');}else toast('Tap the line where you want the split');updateUI();render();};
+document.getElementById('del').onclick=()=>{if(!selected)return;deleteRoad(selected);selected=null;splitAt=null;toast('Road deleted');updateUI();render();};
+function updateUI(){
+document.getElementById('pen').classList.toggle('on',mode==='pen');
+document.getElementById('edit').classList.toggle('on',mode==='edit');
+document.getElementById('undo').disabled=!history.length&&!pending;
+typesRow.classList.toggle('show',mode==='edit'&&!!selected);
+typesRow.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',!!selected&&selected.type===b.dataset.type));
+document.getElementById('split').disabled=!splitAt;
+const hasRoute=routePieces().length>0;
+if(mode==='pen')hint.textContent=hasRoute?'Now the other roads. Their ends snap onto the route; a crossing makes a junction.':'Draw your route: from where you come to where you go. Then lift.';
+else hint.textContent=selected?'Road type below. Drag a node to fix a bend or an angle. Split cuts at the marked spot.':'Tap a road to select it. Drag nodes to adjust. Tap the line where you want a split.';
+}
+const sheet=document.getElementById('sheet'),mini=document.getElementById('mini');
+document.getElementById('done').onclick=()=>{commitPending();openSheet();};
+document.getElementById('close').onclick=()=>sheet.classList.remove('show');
+sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.classList.remove('show');});
+document.getElementById('copy').onclick=async()=>{const t=document.getElementById('json');try{await navigator.clipboard.writeText(t.value);toastInSheet('Copied');}catch(_){t.focus();t.select();}};
+function toastInSheet(msg){const b=document.getElementById('copy');const o=b.textContent;b.textContent=msg;setTimeout(()=>b.textContent=o,1200);}
+function openSheet(){
+const data=exportJSON();
+const m=mini.getContext('2d');const dm=2;mini.width=132*dm;mini.height=132*dm;m.setTransform(dm,0,0,dm,0,0);m.clearRect(0,0,132,132);
+if(data){
+const all=[];for(const r of state.roads)for(const pid of r.p)all.push(P(pid));
+const xs=all.map(p=>p.x),ys=all.map(p=>p.y);const minX=Math.min(...xs),minY=Math.min(...ys),w=Math.max(...xs)-minX,h=Math.max(...ys)-minY;
+const pad=16,s=Math.min((132-2*pad)/Math.max(w,1),(132-2*pad)/Math.max(h,1),1.2);
+const ox=pad+((132-2*pad)-w*s)/2-minX*s,oy=pad+((132-2*pad)-h*s)/2-minY*s;
+m.save();m.translate(ox,oy);m.scale(s,s);
+drawWith(m,s);
+m.restore();
+}
+const rp=routePieces();const side=state.roads.length-rp.length;
+const types=rp.map(r=>r.type);const uniq=[...new Set(types)];
+document.getElementById('notes').innerHTML=rp.length?`Route: ${uniq.join(' → ')}.<br>${side} other road${side===1?'':'s'} at the junction.<em>${state.raw.length} raw stroke${state.raw.length===1?'':'s'} kept · sketch made in the field</em>`:`No route yet.<em>Draw the route first, then the other roads.</em>`;
+document.getElementById('json').value=data?JSON.stringify(data,null,1):'{}';
+sheet.classList.add('show');
+}
+function drawWith(m,s){
+m.lineCap='round';m.lineJoin='round';
+const trace=(pts)=>{m.beginPath();m.moveTo(pts[0].x,pts[0].y);if(pts.length===2){m.lineTo(pts[1].x,pts[1].y);return;}for(let i=1;i<pts.length-1;i++){const a=pts[i-1],b=pts[i],c=pts[i+1];if(turn(a,b,c)>Math.PI*0.28)m.lineTo(b.x,b.y);else m.quadraticCurveTo(b.x,b.y,(b.x+c.x)/2,(b.y+c.y)/2);}const l=pts[pts.length-1];m.lineTo(l.x,l.y);};
+for(const r of state.roads){if(r.p.length<2)continue;const pts=roadPts(r);m.lineWidth=(r.route?6:3)/s;m.strokeStyle=COL.ink;m.setLineDash(dash(r.type,r.route).map(v=>v/s));trace(pts);m.stroke();}
+m.setLineDash([]);
+const st=routeStart(),e=routeEnd();
+if(st){m.fillStyle=COL.ink;m.beginPath();m.arc(st.x,st.y,8/s,0,Math.PI*2);m.fill();}
+if(e&&e.prev){const ang=Math.atan2(e.p.y-e.prev.y,e.p.x-e.prev.x);m.strokeStyle=COL.ink;m.lineWidth=6/s;m.beginPath();for(const k of[-1,1]){const a=ang+Math.PI+k*0.62;m.moveTo(e.p.x,e.p.y);m.lineTo(e.p.x+Math.cos(a)*14/s,e.p.y+Math.sin(a)*14/s);}m.stroke();}
+}
+document.getElementById('back').onclick=()=>toast('Back to WP 14 (not in this prototype)');
+updateUI();
+</script>
+</body>
+</html>
