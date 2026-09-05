@@ -17,6 +17,7 @@
     media: 10000,
     points: 20000,
     roads: 1000,
+    splineRoads: 20000,
     rawStrokes: 2000,
     rawPoints: 50000,
     landmarks: 1000
@@ -43,7 +44,7 @@
       if (v === null || typeof v === 'boolean') return;
       if (typeof v === 'number') { requireValue(Number.isFinite(v), 'Note contains a non-finite number.'); return; }
       if (typeof v === 'string') { requireValue(v.length <= LIMITS.noteBytes, 'Note text is too long.'); return; }
-      requireValue(Array.isArray(v) || plain(v), 'Notes must contain only plain JSON values.');
+      requireValue((Array.isArray(v) && Object.getPrototypeOf(v) === Array.prototype) || plain(v), 'Notes must contain only plain JSON values.');
       requireValue(!seen.has(v), 'Notes cannot contain circular references.');
       seen.add(v);
       const keys = Object.keys(v);
@@ -78,7 +79,13 @@
     requireValue(typeof note.text === 'string' && note.text.length <= 100000, 'Invalid note text.');
     requireValue(typeof note.review === 'boolean', 'Invalid review flag.');
     requireValue(Number.isSafeInteger(note.revision) && note.revision >= 0, 'Invalid note revision.');
-    const s = note.sketch;
+    if (plain(note.sketch) && note.sketch.format === 'spline-v2') validateSplineSketch(note.sketch);
+    else validateLegacySketch(note.sketch);
+    return note;
+  }
+
+  // v1 stays readable and importable without changing its graph or coordinates.
+  function validateLegacySketch(s) {
     requireValue(plain(s) && plain(s.pts) && Array.isArray(s.roads) && Array.isArray(s.raw) &&
       Array.isArray(s.landmarks) && Array.isArray(s.crossings), 'Invalid sketch structure.');
     requireValue(Object.keys(s.pts).length <= LIMITS.points && s.roads.length <= LIMITS.roads &&
@@ -117,7 +124,148 @@
     }
     // Crossing semantics are reserved in v1; never import unknown graph topology.
     requireValue(s.crossings.length === 0, 'This version cannot import crossing records.');
-    return note;
+  }
+
+  const sketchId = value => isId(value) || Number.isSafeInteger(value);
+  const normalPosition = p => plain(p) && finite(p.x, -10, 10) && finite(p.y, -10, 10);
+  const idKey = id => String(id);
+  function validateSplineSketch(s) {
+    requireValue(plain(s) && s.format === 'spline-v2' && Array.isArray(s.roads) &&
+      Array.isArray(s.features) && Array.isArray(s.raw), 'Invalid spline sketch structure.');
+    requireValue(s.roads.length <= LIMITS.splineRoads && s.features.length <= LIMITS.landmarks &&
+      s.raw.length <= LIMITS.rawStrokes, 'Sketch contains too many objects.');
+    if (s.aspect !== undefined) requireValue(finite(s.aspect, .25, 4), 'Invalid drawing aspect ratio.');
+    const ids = new Set(), roads = new Map();
+    function entityId(entity) {
+      requireValue(plain(entity) && sketchId(entity.id) && !ids.has(idKey(entity.id)), 'Invalid or duplicate sketch id.');
+      ids.add(idKey(entity.id));
+    }
+    function cubic(points) {
+      requireValue(Array.isArray(points) && points.length === 4 && points.every(normalPosition), 'A spline needs four finite normalized points.');
+      requireValue(points.some(p => p.x !== points[0].x || p.y !== points[0].y), 'Spline must have a nonzero length.');
+    }
+    for (const road of s.roads) {
+      entityId(road); cubic(road.p);
+      requireValue(['tarmac', 'gravel', 'track'].includes(road.type) && typeof road.route === 'boolean', 'Invalid road type or route flag.');
+      roads.set(idKey(road.id), road);
+    }
+    const dependencies = new Map(), dependents = new Map();
+    for (const road of s.roads) {
+      const parents = new Set();
+      for (const key of ['attach', 'endAttach']) if (road[key] !== undefined) {
+        const attachment = road[key];
+        requireValue(plain(attachment) && sketchId(attachment.id) && roads.has(idKey(attachment.id)) &&
+          roads.get(idKey(attachment.id)).id === attachment.id && idKey(attachment.id) !== idKey(road.id) && finite(attachment.t, 0, 1), 'Invalid spline attachment or missing road.');
+        parents.add(idKey(attachment.id));
+      }
+      dependencies.set(idKey(road.id), parents.size);
+      for (const parent of parents) {
+        if (!dependents.has(parent)) dependents.set(parent, []);
+        dependents.get(parent).push(idKey(road.id));
+      }
+    }
+    // Iterative topological check also handles long imported chains without a
+    // recursive traversal exhausting the call stack.
+    const ready = [...dependencies].filter(([, count]) => count === 0).map(([id]) => id);
+    for (let i = 0; i < ready.length; i++) for (const id of dependents.get(ready[i]) || []) {
+      dependencies.set(id, dependencies.get(id) - 1);
+      if (dependencies.get(id) === 0) ready.push(id);
+    }
+    requireValue(ready.length === roads.size, 'Spline attachments cannot form a cycle.');
+    for (const feature of s.features) {
+      entityId(feature);
+      requireValue(typeof feature.type === 'string' && feature.type.length > 0 && feature.type.length <= 100, 'Invalid landmark type.');
+      requireValue((feature.at !== undefined) !== (feature.p !== undefined), 'A landmark needs either a position or a line.');
+      if (feature.at !== undefined) requireValue(normalPosition(feature.at), 'Invalid landmark position.');
+      else cubic(feature.p);
+      if (feature.side !== undefined) requireValue(feature.side === 1 || feature.side === -1, 'Invalid landmark side.');
+      if (feature.label !== undefined) requireValue(typeof feature.label === 'string' && feature.label.length <= 100, 'Invalid landmark label.');
+    }
+    let rawPoints = 0;
+    for (const stroke of s.raw) {
+      requireValue(Array.isArray(stroke) && stroke.length <= LIMITS.rawPoints, 'Invalid original ink stroke.');
+      rawPoints += stroke.length;
+      requireValue(rawPoints <= LIMITS.rawPoints, 'Too many original ink points.');
+      for (const p of stroke) requireValue(normalPosition(p) && (p.t === undefined || finite(p.t, 0, 8640000000000000)), 'Invalid original ink point.');
+    }
+  }
+
+  function migrateSketch(input) {
+    const source = cloneJSON(input);
+    if (source.format === 'spline-v2') { validateSplineSketch(source); if (source.aspect === undefined) source.aspect = 370 / 405; return source; }
+    validateLegacySketch(source);
+    const result = { format: 'spline-v2', aspect: 1, roads: [], features: [], raw: [] };
+    const endpointOwners = new Map(), legacyRoads = new Map(source.roads.map(road => [road.id, road]));
+    // Zero-length legacy edges still connect nodes. Coalesce their topology
+    // before creating visible pieces, including an initial degenerate segment.
+    const aliases = new Map();
+    function nodeKey(id) {
+      let parent = id;
+      while (aliases.has(parent)) parent = aliases.get(parent);
+      while (aliases.has(id)) { const next = aliases.get(id); aliases.set(id, parent); id = next; }
+      return parent;
+    }
+    for (const road of source.roads) for (let i = 1; i < road.p.length; i++) {
+      const a = source.pts[road.p[i - 1]], b = source.pts[road.p[i]];
+      if (a.x === b.x && a.y === b.y) {
+        const from = nodeKey(road.p[i - 1]), to = nodeKey(road.p[i]);
+        if (from !== to) aliases.set(to, from);
+      }
+    }
+    const normalize = p => ({ x: p.x / 480, y: p.y / 480 });
+    const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    for (const road of source.roads) {
+      for (let i = 1; i < road.p.length; i++) {
+        const a = normalize(source.pts[road.p[i - 1]]), b = normalize(source.pts[road.p[i]]);
+        if (a.x === b.x && a.y === b.y) continue;
+        const piece = { id: 'legacy-road-' + result.roads.length, p: [a, lerp(a, b, 1 / 3), lerp(a, b, 2 / 3), b],
+          route: road.route, type: road.type, legacyRoadId: road.id, legacySegment: i - 1 };
+        // Only refer to earlier pieces: connected junctions follow edits without
+        // introducing attachment cycles, including closed legacy loops.
+        const startKey = nodeKey(road.p[i - 1]), endKey = nodeKey(road.p[i]);
+        const start = endpointOwners.get(startKey), end = endpointOwners.get(endKey);
+        if (start) piece.attach = { ...start };
+        if (end) piece.endAttach = { ...end };
+        if (!start) endpointOwners.set(startKey, { id: piece.id, t: 0 });
+        if (!end) endpointOwners.set(endKey, { id: piece.id, t: 1 });
+        result.roads.push(piece);
+      }
+    }
+    function landmarkPosition(landmark) {
+      const road = legacyRoads.get(landmark.roadId), points = road.p.map(id => source.pts[id]);
+      const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
+      let remaining = landmark.t * lengths.reduce((sum, length) => sum + length, 0);
+      for (let i = 0; i < lengths.length; i++) {
+        let a = points[i], b = points[i + 1], length = lengths[i];
+        if (!length) continue;
+        if (remaining <= length + 1e-5 || i === lengths.length - 1) {
+          let t = Math.max(0, Math.min(1, remaining / length));
+          // Match JunctionModel's vertex tie-break so signed offsets preserve
+          // exactly the same side when a landmark lies at a legacy corner.
+          if (Math.abs(remaining - length) <= 1e-5 && i < lengths.length - 1 && road.p[i + 2] < road.p[i]) {
+            i++; a = points[i]; b = points[i + 1]; length = lengths[i]; t = 0;
+          }
+          const at = lerp(a, b, t);
+          return normalize({ x: at.x - (length ? (b.y - a.y) / length : 0) * landmark.offset,
+            y: at.y + (length ? (b.x - a.x) / length : 0) * landmark.offset });
+        }
+        remaining -= length;
+      }
+      return normalize(points[0]);
+    }
+    const supported = new Set(['house', 'tree', 'gate', 'bridge', 'sign', 'pole', 'rock', 'church', 'hedge', 'bank', 'water', 'tower']);
+    const symbolAliases = new Map([['sandbank', 'bank'], ['sand bank', 'bank'], ['waterline', 'water'], ['water line', 'water']]);
+    for (const landmark of source.landmarks) {
+      const symbol = landmark.symbol.toLowerCase().trim(), normalizedType = symbolAliases.get(symbol) || symbol;
+      const feature = { id: 'legacy-feature-' + result.features.length,
+        type: supported.has(normalizedType) ? normalizedType : 'sign', at: landmarkPosition(landmark),
+        legacyLandmarkId: landmark.id };
+      if (!supported.has(normalizedType)) feature.label = landmark.symbol;
+      result.features.push(feature);
+    }
+    result.raw = source.raw.map(stroke => stroke.map(p => ({ ...normalize(p), ...(p.t === undefined ? {} : { t: p.t }) })));
+    validateSplineSketch(result);
+    return result;
   }
 
   function mediaMetadata(input) {
@@ -172,6 +320,7 @@
       this.draftPrefix = this.name + ':draft:';
     }
     static validateNote(note) { return validateNote(note); }
+    static migrateSketch(sketch) { return migrateSketch(sketch); }
     static get limits() { return LIMITS; }
     async open() {
       if (this.db) return this;

@@ -1,60 +1,96 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#01143c">
-  <meta name="description" content="Make a roadbook note at the junction. Sketch a tulip, record a voice note and keep photos with the marked point.">
-  <title>RallyMaker · Roadbook notes</title>
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./styles.css">
-</head>
-<body>
-  <header class="app-header">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">R<span>↗</span></span><div><strong>RallyMaker</strong><span>Roadbook notes</span></div></div>
-    <div class="header-actions"><button id="open-notes" class="quiet" type="button">Points <span id="note-count">0</span></button><button id="open-export" class="quiet" type="button">Export</button></div>
-  </header>
-  <main class="app" id="app" aria-busy="true">
-    <div class="point-bar">
-      <div class="point-info"><strong id="point-title">Ready for the next point</strong><span id="point-meta">Mark it now. Finish the note when you can.</span></div>
-      <button id="gps-toggle" class="gps-button" type="button" aria-pressed="false">Enable GPS</button>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff"><meta name="description" content="Sketch roadbook tulips with one hand. Keep pictures, text and voice at every point.">
+<title>RallyMaker · Roadbook notes</title>
+<link rel="icon" href="./icon.svg"><link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./styles.css">
+</head><body>
+<div id="tulip-thumb-flow">
+  <main class="tt-phone" aria-label="Roadbook note maker" inert>
+    <header class="tt-top"><button class="tt-open-points" type="button" aria-label="Open saved points"><span class="tt-point-title">New point</span><i data-lucide="chevron-down" aria-hidden="true"></i></button><span class="tt-save-state" role="status" aria-live="polite">Opening…</span><button class="tt-open-menu" type="button" aria-label="Point options"><i data-lucide="more-horizontal" aria-hidden="true"></i></button></header>
+    <div class="tt-paper">
+      <svg class="tt-sketch" role="img" aria-label="Smooth roadbook tulip. Tap a road to select it, drag a visible handle to reshape, or draw a new branch."></svg>
+      <div class="tt-message" role="status" aria-live="polite">Draw a fork. Tap a road to edit.</div>
+      <button class="tt-quick" type="button" hidden><span>Road added</span><strong>Undo</strong></button>
+      <button type="button" class="tt-note-record-mini" hidden aria-label="Stop voice recording"><i data-lucide="square" aria-hidden="true"></i><span>Recording</span><span class="tt-note-record-time">0:00</span><span>Stop</span></button>
     </div>
-    <div class="workspace">
-      <section class="editor" aria-label="Tulip drawing">
-        <div class="paper" id="paper">
-          <div class="paper-controls"><div class="undo-group"><button id="undo" class="paper-button" type="button" aria-label="Undo last drawing change" disabled>↶ <span>Undo</span></button><button id="redo" class="paper-button" type="button" aria-label="Redo drawing change" disabled>↷</button></div><button id="raw-ink" class="paper-button" type="button" aria-pressed="false">Raw ink</button></div>
-          <svg id="drawing" viewBox="0 0 480 480" role="img" aria-label="Tulip sketch. Draw the route from arrival to exit, then pull side roads out from it."><title>Junction sketch</title></svg>
-          <div class="empty-state" id="empty-state"><div class="empty-tulip" aria-hidden="true">●<span>↗</span></div><strong>Draw the way you go.</strong><p>Your first stroke is the route.<br>Then add the other roads.</p><button id="mark-point" class="primary" type="button">Mark this point</button></div>
-          <div class="paper-footer"><span id="paper-caption">Arrival → exit</span><span id="save-status" role="status" aria-live="polite">Opening local notes…</span></div>
-        </div>
-        <div class="draw-toolbar" role="group" aria-label="Drawing tools"><button id="draw-mode" class="tool selected" type="button" aria-pressed="true"><span aria-hidden="true">╱</span>Draw</button><button id="adjust-mode" class="tool" type="button" aria-pressed="false"><span aria-hidden="true">✥</span>Adjust</button><button id="landmark-mode" class="tool" type="button" aria-expanded="false"><span aria-hidden="true">⊙</span>Landmark</button></div>
-        <div id="landmark-palette" class="landmark-palette" hidden aria-label="Landmark favourites"><button type="button" data-symbol="house">House</button><button type="button" data-symbol="tree">Tree</button><button type="button" data-symbol="gate">Gate</button><button type="button" data-symbol="bridge">Bridge</button><button type="button" data-symbol="sign">Sign</button><button type="button" data-symbol="danger">Danger</button></div>
-        <div id="road-tools" class="road-tools" hidden><div class="surface-types" role="group" aria-label="Road surface"><button type="button" data-surface="tarmac">Tarmac</button><button type="button" data-surface="gravel">Gravel</button><button type="button" data-surface="track">Track</button></div><div class="road-actions"><button id="split-road" type="button">Surface starts here</button><button id="unjoin-road" type="button">Unjoin point</button><button id="delete-road" class="danger-quiet" type="button">Delete road</button></div></div>
-        <div id="landmark-tools" class="road-tools" hidden><span id="selected-landmark">Landmark</span><button id="delete-landmark" class="danger-quiet" type="button">Delete landmark</button></div>
-        <div class="edit-extras" id="edit-extras" hidden><button id="reverse-route" type="button">Reverse route</button><button id="clear-sketch" type="button">Clear sketch</button></div>
-        <p class="gesture-hint" id="gesture-hint" aria-live="polite">Start where you arrive. Lift where you leave.</p>
-      </section>
-      <aside class="capture-panel" aria-label="Point details">
-        <div class="capture-heading"><span>This point</span><button id="review-flag" class="quiet" type="button" aria-pressed="false">⚑ Needs check</button></div>
-        <div class="capture-actions"><button id="voice" type="button"><span class="record-dot" aria-hidden="true"></span><span id="voice-label">Voice</span></button><button id="photo" type="button">▧ Photo</button><button id="open-detail" type="button">≡ Note</button><button id="preview" type="button">↗ Cell</button></div>
-        <div class="attachment-strip" id="attachments" aria-label="Photos and recordings" hidden></div>
-        <div class="desktop-note"><label for="quick-note">What distinguishes this point?</label><textarea id="quick-note" rows="3" placeholder="A sign, a landmark, something to check…"></textarea></div>
-        <div class="capture-bottom"><button id="keep-next" class="primary" type="button">Keep & next <span aria-hidden="true">→</span></button></div>
-        <p class="local-note">Notes stay on this device. Export a backup before clearing browser data.</p>
-        <div class="recent-heading">Recent points</div><div id="recent-notes" class="recent-notes"></div>
-      </aside>
+    <div class="tt-accessory">
+    <div class="tt-landmarks" aria-label="Favourite landmarks">
+      <div class="tt-favourites" role="group" aria-label="Your four favourite landmarks">
+        <button type="button" data-feature="house" aria-pressed="false"><i data-lucide="house" aria-hidden="true"></i><span>House</span></button>
+        <button type="button" data-feature="hedge" aria-pressed="false"><i data-lucide="trees" aria-hidden="true"></i><span>Hedge</span></button>
+        <button type="button" data-feature="bank" aria-label="Sandbank" aria-pressed="false"><i data-lucide="mountain" aria-hidden="true"></i><span>Bank</span></button>
+        <button type="button" data-feature="water" aria-label="Waterline" aria-pressed="false"><i data-lucide="waves" aria-hidden="true"></i><span>Waterline</span></button>
+      </div>
+      <button type="button" class="tt-arrange" aria-label="More landmarks" aria-expanded="false"><i data-lucide="grid-2x2" aria-hidden="true"></i><span>More</span></button>
     </div>
+    <div class="tt-context" hidden>
+      <button type="button" data-surface="tarmac" aria-pressed="true">Tarmac</button>
+      <button type="button" data-surface="gravel" aria-pressed="false">Gravel</button>
+      <button type="button" data-surface="track" aria-pressed="false">Track</button>
+      <button type="button" class="tt-delete" aria-label="Delete selected road"><i data-lucide="trash-2" aria-hidden="true"></i><span>Delete</span></button>
+    </div>
+    <div class="tt-feature-context" hidden>
+      <span class="tt-feature-label">Landmark</span>
+      <button type="button" class="tt-flip"><i data-lucide="flip-vertical-2" aria-hidden="true"></i><span>Flip side</span></button>
+      <button type="button" class="tt-feature-delete" aria-label="Delete selected landmark"><i data-lucide="trash-2" aria-hidden="true"></i><span>Delete</span></button>
+    </div>
+    </div>
+    <div class="tt-picker" role="dialog" aria-label="Landmarks" hidden>
+      <div class="tt-picker-head"><strong>Landmarks</strong><button type="button" class="tt-picker-close" aria-label="Close landmarks"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <label class="tt-search-label"><i data-lucide="search" aria-hidden="true"></i><input class="tt-landmark-search" type="search" placeholder="Search landmarks" aria-label="Search landmarks"></label>
+      <div class="tt-favourites-heading"><span>Favourites</span><button type="button" class="tt-picker-manage" aria-label="Edit favourites" aria-pressed="false">Edit</button></div>
+      <div class="tt-picker-favourites" role="group" aria-label="Favourite landmark slots"></div>
+      <div class="tt-reorder-bar" hidden>
+        <span class="tt-reorder-label">Rearrange</span>
+        <button type="button" class="tt-order-left" aria-label="Move favourite left"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+        <button type="button" class="tt-order-right" aria-label="Move favourite right"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <div class="tt-picker-hint" role="status" aria-live="polite">Tap a symbol to use it.</div>
+      <div class="tt-picker-results" role="group" aria-label="Landmark collection"></div>
+    </div>
+    <div class="tt-add" role="dialog" aria-label="Point note" hidden>
+      <div class="tt-sheet-head"><strong>Note</strong><button type="button" class="tt-close" aria-label="Close note"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <label>Text<textarea class="tt-note-text" rows="3" placeholder="A sign, a landmark, something to remember…"></textarea></label>
+      <div class="tt-note-capture">
+        <button type="button" class="tt-note-photo"><i data-lucide="camera" aria-hidden="true"></i><span>Photo</span></button>
+        <button type="button" class="tt-note-voice" aria-pressed="false"><i data-lucide="mic" aria-hidden="true"></i><span class="tt-note-voice-label">Voice</span></button>
+      </div>
+      <div class="tt-note-attachments" aria-label="Photos and voice notes" hidden></div>
+      <div class="tt-note-footer"><span class="tt-note-status" role="status" aria-live="polite">Photos and voice stay with this point.</span><button type="button" class="tt-note-audio"><i data-lucide="paperclip" aria-hidden="true"></i><span>Attach audio</span></button></div>
+      <input class="tt-note-photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
+      <input class="tt-note-audio-input" type="file" accept="audio/*" hidden>
+    </div>
+    <div class="tt-dock">
+      <button type="button" class="tt-pen" aria-pressed="true"><i data-lucide="pen-line" aria-hidden="true"></i><span>Pen</span></button>
+      <button type="button" class="tt-undo"><i data-lucide="undo-2" aria-hidden="true"></i><span>Undo</span></button>
+      <button type="button" class="tt-clear" aria-label="Clear sketch"><i data-lucide="eraser" aria-hidden="true"></i><span>Clear</span></button>
+      <button type="button" class="tt-more" aria-expanded="false"><i data-lucide="sticky-note" aria-hidden="true"></i><span>Note</span><span class="tt-note-count" hidden></span></button>
+      <button type="button" class="tt-done"><i data-lucide="check" aria-hidden="true"></i><span>Done</span></button>
+    </div>
+    <section class="tt-book tt-app-sheet" role="dialog" aria-label="Saved roadbook points" hidden>
+      <div class="tt-sheet-head"><strong>Points</strong><button type="button" data-close-sheet aria-label="Close points"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <div class="tt-point-list"></div><button class="tt-new-point tt-primary" type="button"><i data-lucide="plus" aria-hidden="true"></i>New point</button>
+    </section>
+    <section class="tt-options tt-app-sheet" role="dialog" aria-label="Point options" hidden>
+      <div class="tt-sheet-head"><strong>Options</strong><button type="button" data-close-sheet aria-label="Close options"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <button class="tt-gps-toggle" type="button" aria-pressed="false"><i data-lucide="map-pin" aria-hidden="true"></i><span>Enable GPS for new points</span></button>
+      <button class="tt-backup" type="button"><i data-lucide="download" aria-hidden="true"></i>Download complete backup</button>
+      <button class="tt-import" type="button"><i data-lucide="upload" aria-hidden="true"></i>Import backup</button>
+      <button class="tt-svg" type="button"><i data-lucide="download" aria-hidden="true"></i>Download this tulip · SVG</button>
+      <p class="tt-options-status" role="status">Points and attachments stay on this device. A backup lets you move them to another device.</p>
+      <p class="tt-version">RallyMaker · 3.0</p>
+      <input class="tt-import-input" type="file" accept="application/json,.json" hidden>
+    </section>
+    <section class="tt-review tt-app-sheet" role="dialog" aria-label="Review this roadbook point" hidden>
+      <div class="tt-sheet-head"><strong class="tt-review-title">Point</strong><button type="button" data-close-sheet aria-label="Back to sketch"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      <div class="tt-review-tulip"></div>
+      <label>Total distance · km<input class="tt-trip" type="number" min="0" max="100000" step="0.001" inputmode="decimal" placeholder="Trip-meter reading (optional)"></label>
+      <div class="tt-review-text"></div><div class="tt-anchor"></div>
+      <button class="tt-keep-next tt-primary" type="button">Next point<i data-lucide="arrow-up-right" aria-hidden="true"></i></button>
+    </section>
+    <div class="tt-app-notice" role="status" aria-live="polite" hidden></div>
   </main>
-  <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
-  <input id="import-input" type="file" accept="application/json,.json" hidden>
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-  <dialog id="notes-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Your recce</span><h1>Roadbook points</h1></div><button type="button" class="close-dialog" aria-label="Close points">✕</button></div><div class="dialog-content"><p class="subtle" id="notes-empty">Your saved points will appear here.</p><div id="notes-list" class="notes-list"></div></div><div class="dialog-footer"><button id="new-point" class="primary" type="button">Mark another point</button><button id="import-project" type="button">Import backup</button></div></dialog>
-  <dialog id="detail-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow" id="detail-number">This point</span><h1>Capture the detail</h1></div><button type="button" class="close-dialog" aria-label="Close point details">✕</button></div><div class="dialog-content"><label for="note-text">Roadbook note</label><textarea id="note-text" rows="4" placeholder="For example: gravel starts after the right turn."></textarea><label for="trip-km">Total distance · km</label><input id="trip-km" type="number" min="0" max="100000" step="0.001" inputmode="decimal" placeholder="Optional trip-meter reading"><p class="subtle">Use your trip-meter reading. GPS location alone is not a measured roadbook distance.</p><div class="anchor-detail" id="anchor-detail"></div><div id="detail-media" class="detail-media"></div></div><div class="dialog-footer"><button id="detail-done" class="primary" type="button">Keep details</button></div></dialog>
-  <dialog id="preview-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Preview</span><h1>Roadbook cell</h1></div><button type="button" class="close-dialog" aria-label="Close roadbook preview">✕</button></div><div class="dialog-content"><div class="roadbook-cell"><div class="cell-distances"><strong id="cell-total">—</strong><small>TOTAL KM</small><strong id="cell-partial">—</strong><small>PARTIAL KM</small><span id="cell-number">01</span></div><svg id="cell-tulip" viewBox="0 0 480 480" role="img" aria-label="Roadbook tulip preview"></svg><div class="cell-text" id="cell-text"></div></div><p class="subtle" id="preview-warning">Draft symbols and surface patterns. Review against your event's roadbook conventions.</p></div><div class="dialog-footer"><button id="download-svg" class="primary" type="button">Download SVG</button><button id="preview-back" type="button">Back to sketch</button></div></dialog>
-  <dialog id="export-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Keep your source</span><h1>Export roadbook notes</h1></div><button type="button" class="close-dialog" aria-label="Close export">✕</button></div><div class="dialog-content"><button id="download-backup" class="export-option" type="button"><strong>Complete backup</strong><span>Every point, editable tulip, raw ink, photos and audio.</span></button><button id="download-note" class="export-option" type="button"><strong>This point · JSON</strong><span>Editable drawing, anchor and text. Media files are included in the complete backup.</span></button><button id="export-svg" class="export-option" type="button"><strong>This tulip · SVG</strong><span>Scalable roadbook artwork.</span></button><button id="export-raw" class="export-option" type="button"><strong>Original ink · PNG</strong><span>Your finger strokes before conversion.</span></button><p class="subtle" id="export-state">Exports are downloaded directly to your device.</p></div></dialog>
-  <script src="./model.js" defer></script>
-  <script src="./store.js" defer></script>
-  <script src="./app.js" defer></script>
-</body>
-</html>
+</div>
+<script src="./icons.js" defer></script><script src="./store.js" defer></script><script src="./editor.js" defer></script><script src="./note-media.js" defer></script><script src="./app.js" defer></script>
+</body></html>
