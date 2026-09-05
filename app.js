@@ -76,6 +76,7 @@
     $('point-meta').textContent=active?`Marked ${time(active.anchor.markedAt)} · ${active.anchor.location?'GPS ±'+Math.round(active.anchor.location.accuracyM)+' m':'no GPS fix'}`:'Mark it now. Finish the note when you can.';
     $('paper-caption').textContent=active?(active.tripKm===null?'Arrival → exit':active.tripKm.toFixed(3)+' km · trip meter'):'Arrival → exit';
     if(!active)saveStatus(storageReady?'Ready · saved locally':'Ready · export if saving fails',!storageReady);
+    else if(savedRevisions.get(active.id)===active.revision)saveStatus('Saved on device');
     $('undo').disabled=!model.canUndo()&&!ink.length;$('redo').disabled=!model.canRedo();
     for(const tool of ['draw','adjust']){$(tool+'-mode').classList.toggle('selected',mode===tool);pressed(tool+'-mode',mode===tool);}pressed('raw-ink',rawVisible);pressed('review-flag',!!active?.review);
     $('edit-extras').hidden=mode!=='adjust';const road=model.state.roads.find(r=>r.id===selectedRoad);
@@ -190,7 +191,7 @@
   window.addEventListener('beforeunload',e=>{if(recorder||audioBusy){e.preventDefault();e.returnValue='';}});
   window.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?$('redo').click():$('undo').click();}});
   async function boot(){
-    try{await db.open();storageReady=true;for(const note of await db.listNotes())notes.set(note.id,note);}catch(error){storageError(error);}
+    try{await db.open();storageReady=true;for(const note of await db.listNotes()){notes.set(note.id,note);savedRevisions.set(note.id,note.revision);}}catch(error){storageError(error);}
     try{for(const draft of db.readDrafts()){const current=notes.get(draft.id);if(!current||draft.revision>current.revision){notes.set(draft.id,draft);await enqueueSave(draft);}}}catch(error){console.error('Draft recovery:',error);}
     ready=true;$('app').setAttribute('aria-busy','false');const latest=[...notes.values()].sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))[0];if(latest){active=latest;model=new JunctionModel(latest.sketch);models.set(latest.id,model);recoverInk();}
     render();renderLists();await renderMedia();
