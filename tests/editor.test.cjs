@@ -53,46 +53,9 @@ test('small vertical and diagonal finger wiggles become exact straight cubics an
  }
 });
 
-test('a forward shallow bend inside one dot-column width becomes straight',()=>{
- const h=setup(),points=Array.from({length:21},(_,i)=>{const t=i/20;return[55+260*t,180+4*20*t*(1-t)]});
- h.stroke(points);assertStraight(h.api.getState().roads[0].p);
-});
-
-test('one column means an inclusive 24px total strip width, not 24px on each side',()=>{
- for(const [depth,straight] of [[24,true],[24.25,false]]){
-  const h=setup(),points=Array.from({length:21},(_,i)=>{const t=i/20;return[55+260*t,180+4*depth*t*(1-t)]});
-  h.stroke(points);const p=h.api.getState().roads[0].p;
-  if(straight)assertStraight(p);else assert.ok((bez(p,.5).y-p[0].y)*405>20);
- }
- const h=setup();h.stroke([[55,180],[95,160],[150,168],[205,190],[260,180],[315,180]]);
- assert.throws(()=>assertStraight(h.api.getState().roads[0].p),'offsets on both sides exceed a single 24px strip');
-});
-
-test('forward wiggles within one column straighten even when their travel is much longer than the chord',()=>{
- const h=setup(),points=wobbly([55,200],[315,200],11,48);
- const travel=points.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p[0]-points[i][0],p[1]-points[i][1]),0);
- assert.ok(travel>260*3);h.stroke(points);assertStraight(h.api.getState().roads[0].p);
-});
-
-test('forward is measured along the stroke heading in either drawing direction',()=>{
- for(const [a,b] of [[[100,60],[100,345]],[[100,345],[100,60]],[[60,180],[310,180]],[[310,180],[60,180]],[[70,320],[280,90]],[[280,90],[70,320]]]){
-  const h=setup();h.stroke(wobbly(a,b,11,12));const p=h.api.getState().roads[0].p;
-  assertStraight(p);assert.deepEqual(onCanvas(p[0]),a);assert.deepEqual(onCanvas(p[3]),b);
- }
-});
-
-test('a real backtrack within a narrow column keeps its fitted curve',()=>{
- const h=setup();h.stroke([[55,200],[110,204],[165,210],[160,207],[215,203],[275,200],[315,200]]);
- assert.throws(()=>assertStraight(h.api.getState().roads[0].p));
-});
-
-test('dot-column assistance measures CSS pixels on a tall non-square drawing surface',()=>{
- for(const [depth,straight] of [[24,true],[24.25,false]]){
-  const h=setup();h.find('.tt-paper').rect={left:0,top:0,width:320,height:620};h.api.setState({format:'spline-v2',roads:[],features:[],raw:[]});
-  const points=Array.from({length:21},(_,i)=>{const t=i/20;return[35+250*t,300+4*depth*t*(1-t)]});
-  h.stroke(points);const p=h.api.getState().roads[0].p;
-  if(straight)assertStraight(p);else assert.ok((bez(p,.5).y-p[0].y)*620>20);
- }
+test('a deliberate shallow bend stays curved even inside the finger-wobble allowance',()=>{
+ const h=setup(),points=Array.from({length:21},(_,i)=>{const t=i/20;return[55+260*t,180+4*3.5*t*(1-t)]});
+ h.stroke(points);const p=h.api.getState().roads[0].p;assert.ok((bez(p,.5).y-p[0].y)*405>3);
 });
 
 test('straight assistance rebuilds controls after start or finish snaps without reshaping the parent',()=>{
