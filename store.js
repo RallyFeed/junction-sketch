@@ -147,6 +147,7 @@
     for (const road of s.roads) {
       entityId(road); cubic(road.p);
       requireValue(['tarmac', 'gravel', 'track'].includes(road.type) && typeof road.route === 'boolean', 'Invalid road type or route flag.');
+      if (road.roundaboutId !== undefined) requireValue(isId(road.roundaboutId), 'Invalid roundabout group id.');
       roads.set(idKey(road.id), road);
     }
     const dependencies = new Map(), dependents = new Map();

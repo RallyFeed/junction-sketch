@@ -8,6 +8,10 @@ A white, one-hand roadbook sketchpad with blue controls. No build step or extern
 
 Draw the route from its entry dot toward the exit arrow. Small wiggles in a nearly straight stroke settle into a clean straight line when you lift; intentional bends remain cubic curves. Draw a fork from a road and it snaps to that curve; the original road keeps its shape. A brief lift near the previous endpoint continues the stroke.
 
+For a roundabout, draw the approach, a full loop and your exit in one continuous first road stroke. On lift, a recognized gesture becomes a compact centered circular roundabout, with arrival at the bottom and the exit and circulation taken from your stroke. Space remains around the ring for landmarks. Draw other roads directly with Pen; their ends snap to the ring. Undo removes the whole roundabout in one step. Original ink remains available in the saved sketch. Ambiguous gestures remain ordinary drawings.
+
+Tap a roundabout segment to refine it with the existing curve handles. Connected endpoints follow. Delete and surface style apply to the whole roundabout; separately drawn roads stay independent.
+
 Tap a road to edit with a few handles. Tap empty paper to return to Pen. Selected roads offer surface style and Delete. Undo is always in the thumb toolbar, with a quick Undo immediately after drawing. Clear removes the visible sketch and can be undone; text, attachments and original ink stay with the point.
 
 Four landmark favourites sit above the toolbar. More opens the full searchable collection; Edit lets you choose and reorder favourites. House, tree and similar symbols use tap-to-place. Hedge, sandbank and waterline follow a drawn curve. Waterlines are blue, hedges green and sandbanks dark sand, including their toolbar samples and SVG exports. Selected sandbanks can flip their hatching side.
@@ -28,6 +32,7 @@ Photo files are limited to 20 MiB, audio attachments to 50 MiB. Backups can cont
 
 - `index.html`, `styles.css`: approved mobile interface and native page layout.
 - `editor.js`: curve geometry, snapping, editing, landmarks, undo and SVG export.
+- `roundabout.js`: offline recognition of approach–loop–exit strokes and compact circular geometry.
 - `app.js`: point ownership, persistence, review, GPS and backups.
 - `note-media.js`: native media capture, durable writes, recovery and playback.
 - `store.js`: validated point/media storage and portable backup/import.

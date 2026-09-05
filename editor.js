@@ -21,6 +21,7 @@ const persistFavourites=()=>{try{localStorage.setItem(FAVOURITES_KEY,JSON.string
 const status=t=>find('.tt-message').textContent=t,buttons=()=>[...row.querySelectorAll('[data-feature]')];
 const chosenRoad=()=>selected?.kind==='road'?roads.find(r=>r.id===selected.id):null;
 const chosenFeature=()=>selected?.kind==='feature'?features.find(f=>f.id===selected.id):null;
+const sameRoad=(a,b)=>!!a&&!!b&&(a.id===b.id||!!a.roundaboutId&&a.roundaboutId===b.roundaboutId);
 const screenDistance=(a,b)=>Math.hypot((a.x-b.x)*width,(a.y-b.y)*height);
 function save(){history.push(getState());if(history.length>40)history.shift()}
 function element(tag,attrs){const n=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));return n}
@@ -59,6 +60,7 @@ function drawPointFeature(f,color){
 function hideQuick(){clearTimeout(quickTimer);find('.tt-quick').hidden=true}
 function syncControls(){
  const road=chosenRoad(),feature=chosenFeature();find('.tt-context').hidden=!road;find('.tt-feature-context').hidden=!feature;find('.tt-landmarks').hidden=!!selected;
+ find('.tt-delete').setAttribute('aria-label',road?.roundaboutId?'Delete selected roundabout':'Delete selected road');
  find('.tt-pen').setAttribute('aria-pressed',String(!selected&&!placement&&find('.tt-picker').hidden));find('.tt-undo').disabled=!history.length;find('.tt-clear').disabled=!roads.length&&!features.length;
  for(const b of root.querySelectorAll('[data-surface]'))b.setAttribute('aria-pressed',String(road?.type===b.dataset.surface));
  for(const b of buttons())b.setAttribute('aria-pressed',String(placement===b.dataset.feature));
@@ -67,7 +69,7 @@ function syncControls(){
 }
 function draw(){
  svg.replaceChildren();svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
- for(const r of roads)svg.append(element('path',{d:path(r.p),fill:'none',stroke:chosenRoad()===r?'#245fce':'#12243f','stroke-width':r.route?7:3.5,'stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':r.type==='gravel'?'11 8':r.type==='track'?'1 8':'none'}));
+ for(const r of roads)svg.append(element('path',{d:path(r.p),fill:'none',stroke:sameRoad(chosenRoad(),r)?'#245fce':'#12243f','stroke-width':r.route?7:3.5,'stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':r.type==='gravel'?'11 8':r.type==='track'?'1 8':'none'}));
  const routePieces=roads.filter(r=>r.route),first=routePieces[0],last=routePieces.at(-1);if(first){const a=first.p[0],[,,q,z]=last.p,ang=Math.atan2((z.y-q.y)*height,(z.x-q.x)*width);svg.append(element('circle',{cx:a.x*width,cy:a.y*height,r:9,fill:'#12243f'}));svg.append(element('path',{d:`M${z.x*width-14*Math.cos(ang-.55)} ${z.y*height-14*Math.sin(ang-.55)} L${z.x*width} ${z.y*height} L${z.x*width-14*Math.cos(ang+.55)} ${z.y*height-14*Math.sin(ang+.55)}`,fill:'none',stroke:'#12243f','stroke-width':6,'stroke-linecap':'round','stroke-linejoin':'round'}))}
  for(const f of features){const color=types[f.type]?.color||(chosenFeature()===f?'#245fce':'#12243f');if(featureMeta(f).kind==='point')drawPointFeature(f,color);else drawLineFeature(f,color)}
  if(ink.length>1)svg.append(element('polyline',{points:ink.map(p=>`${p.x*width},${p.y*height}`).join(' '),fill:'none',stroke:types[placement]?.color||'#245fce','stroke-width':3,opacity:.6,'stroke-linecap':'round'}));
@@ -142,10 +144,31 @@ function fit(points,start,end){
  for(const [q,index,control] of [[start,0,1],[end,3,2]])if(q){const dx=q.x-p[index].x,dy=q.y-p[index].y;p[index]=copy(q);p[control].x+=dx;p[control].y+=dy}
  return p;
 }
+function roundaboutRoads(detection){
+ const group=id(),owners=[];
+ return globalThis.RoundaboutGeometry.build(detection,{width,height}).map(segment=>{
+  const road={id:id(),roundaboutId:group,route:segment.route,type:'tarmac',p:copy(segment.p)};
+  // Earlier endpoint owners keep the circle joined without cyclic attachments.
+  for(const [index,key,t] of [[0,'attach',0],[3,'endAttach',1]]){
+   const owner=owners.find(entry=>screenDistance(entry.p,road.p[index])<.01);
+   if(owner)road[key]={id:owner.id,t:owner.t};
+   else owners.push({p:copy(road.p[index]),id:road.id,t});
+  }
+  return road;
+ });
+}
 function commitStroke(g,points){
  if(points.length<2)return;save();raw.push(copy(points));
  if(g.placement){features.push({id:id(),type:g.placement,p:fit(points),side:1});placement=null;status(`${types[g.placement].label} drawn. Back to Pen.`);quick(`${types[g.placement].label} added`)}
- else{
+ else if(!roads.length&&globalThis.RoundaboutGeometry?.detect){
+  const detection=globalThis.RoundaboutGeometry.detect(points,{width,height});
+  if(detection){roads.push(...roundaboutRoads(detection));status('Roundabout added. Draw other roads with Pen.');quick('Roundabout added')}
+  else addFreehandRoad(points);
+ }
+ else addFreehandRoad(points);
+ selected=null;ink=[];draw();changed();
+}
+function addFreehandRoad(points){
   const start=nearRoad(points[0]);let end=nearRoad(points.at(-1));
   // A short fork can leave the same road's snap margin without reaching its edge.
   // Keep its free end instead of snapping both ends onto one junction.
@@ -153,8 +176,6 @@ function commitStroke(g,points){
   const p=fit(points,start?.q,end?.q),road={id:id(),route:!roads.some(r=>r.route),type:'tarmac',p};
   for(const [hit,key] of [[start,'attach'],[end,'endAttach']])if(hit)road[key]={id:hit.id,t:hit.t};
   roads.push(road);status('Tap a road or landmark to edit.');quick(start||end?'Fork added':'Road added');
- }
- selected=null;ink=[];draw();changed();
 }
 function commitPending(){
  if(!pending)return;const saved=pending;pending=null;clearTimeout(saved.timer);commitStroke(saved.g,saved.points);
@@ -211,17 +232,17 @@ svg.addEventListener('pointercancel',e=>{
 });
 find('.tt-pen').onclick=()=>{dismiss();status('Draw your route. Tap a road to edit.')};find('.tt-undo').onclick=undo;find('.tt-quick').onclick=undo;
 find('.tt-delete').onclick=()=>{
- commitPending();const r=chosenRoad();if(!r)return;save();roads=roads.filter(k=>k.id!==r.id);
- for(const k of roads){if(k.attach?.id===r.id)delete k.attach;if(k.endAttach?.id===r.id)delete k.endAttach}
+ commitPending();const r=chosenRoad();if(!r)return;save();const removed=new Set(roads.filter(k=>sameRoad(r,k)).map(k=>k.id));roads=roads.filter(k=>!removed.has(k.id));
+ for(const k of roads){if(removed.has(k.attach?.id))delete k.attach;if(removed.has(k.endAttach?.id))delete k.endAttach}
  if(roads.length&&!roads.some(k=>k.route))roads[0].route=true;
- dismiss();status('Road deleted.');quick('Road deleted');changed();
+ dismiss();status(r.roundaboutId?'Roundabout deleted.':'Road deleted.');quick(r.roundaboutId?'Roundabout deleted':'Road deleted');changed();
 };
 find('.tt-feature-delete').onclick=()=>{commitPending();const f=chosenFeature();if(!f)return;save();features=features.filter(k=>k.id!==f.id);dismiss();status(`${featureMeta(f).label} deleted.`);quick('Landmark deleted');changed()};
 find('.tt-flip').onclick=()=>{commitPending();const f=chosenFeature();if(!f||f.type!=='bank')return;save();f.side=-(f.side||1);draw();status('Sandbank marks flipped to the other side.');changed()};
 find('.tt-clear').onclick=()=>{commitPending();if(!roads.length&&!features.length)return;save();roads=[];features=[];ink=[];gesture=null;dismiss();status('Sketch cleared. Your note stays.');quick('Sketch cleared');changed()};
 find('.tt-more').onclick=()=>{const show=find('.tt-add').hidden;dismiss();find('.tt-add').hidden=!show;find('.tt-more').setAttribute('aria-expanded',String(show))};find('.tt-close').onclick=dismiss;
 find('.tt-done').onclick=()=>{dismiss();root.dispatchEvent(new CustomEvent('finishpoint'))};
-for(const b of root.querySelectorAll('[data-surface]'))b.onclick=()=>{commitPending();const r=chosenRoad();if(!r||r.type===b.dataset.surface)return;save();r.type=b.dataset.surface;draw();status('Surface updated.');changed()};
+for(const b of root.querySelectorAll('[data-surface]'))b.onclick=()=>{commitPending();const r=chosenRoad();if(!r||r.type===b.dataset.surface)return;save();for(const road of roads)if(sameRoad(r,road))road.type=b.dataset.surface;draw();status('Surface updated.');changed()};
 function icons(){if(globalThis.lucide?.createIcons)globalThis.lucide.createIcons({attrs:{width:22,height:22}})}
 function featureButton(type,className){
  const b=document.createElement('button');b.type='button';b.className=className;b.dataset.feature=type;

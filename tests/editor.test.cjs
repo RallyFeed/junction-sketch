@@ -26,7 +26,7 @@ function setup(storage=new Map()){
  root.dispatchEvent=e=>events.push(e.type);
  const tasks=new Map();let taskId=0;
  const context={document:{getElementById:()=>root,createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t)},ResizeObserver:class{constructor(f){this.f=f}observe(){}},CustomEvent:class{constructor(type){this.type=type}},setTimeout:f=>{tasks.set(++taskId,f);return taskId},clearTimeout:id=>tasks.delete(id),console,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},XMLSerializer:class{serializeToString(n){return `<${n.tag} ${Object.entries(n.attrs).map(([k,v])=>`${k}="${v}"`).join(' ')}>${n.children.map(c=>this.serializeToString(c)).join('')}</${n.tag}>`}}};
- vm.createContext(context);vm.runInContext(source,context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../roundabout.js'),'utf8'),context);vm.runInContext(source,context);
  const svg=find('.tt-sketch'),api=context.TulipEditor;
  const event=(x,y)=>({pointerId:1,isPrimary:true,clientX:x,clientY:y,preventDefault(){}});
  const down=(x,y)=>svg.listeners.pointerdown(event(x,y)),move=(x,y)=>svg.listeners.pointermove(event(x,y)),up=(x,y)=>svg.listeners.pointerup(event(x,y));
@@ -151,4 +151,39 @@ test('fresh paper fills its viewport and saved paper has a physically fitted dra
  h.find('.tt-paper').rect={left:0,top:0,width:540,height:300};h.api.setState(saved);
  assert.equal(h.api.getState().aspect,320/620);assert.equal(h.svg.getBoundingClientRect().height,300);assert.ok(h.svg.getBoundingClientRect().width<155);
  const state=fixture();state.aspect=1;h.api.setState(state);const target=h.svg.getBoundingClientRect();assert.equal(target.width,target.height);assert.equal(target.width,300);assert.equal(target.left,120);
+});
+
+// Approximate the supplied approach, rough oval, partial second lap and upper-left exit.
+const roundaboutInk=()=>[[382,1042],[370,982],[358,890],[364,800],[368,776],[341,766],[305,731],[281,708],[266,678],[259,649],[266,606],[279,568],[305,536],[340,514],[375,501],[416,505],[455,522],[484,553],[503,596],[510,644],[502,689],[483,734],[459,771],[424,792],[378,802],[340,792],[314,768],[283,733],[267,699],[267,666],[277,616],[279,568],[291,539],[314,535],[278,519],[230,498],[182,472],[144,447],[109,423]].map(([x,y])=>[(x-24)/663*370,(y-391)/665*405]);
+
+test('one approach-loop-exit stroke builds a compact roundabout with inferred exit and one-step undo',()=>{
+ const h=setup(),ink=roundaboutInk();h.stroke(ink);const s=plain(h.api.getState()),route=s.roads.filter(r=>r.route);
+ assert.ok(s.roads.length>=5);assert.ok(s.roads.every(r=>r.roundaboutId===s.roads[0].roundaboutId));
+ assert.equal(s.raw.length,1);assert.equal(s.raw[0].length,ink.length);assert.equal(h.find('.tt-context').hidden,true);
+ assert.ok(Math.abs(route[0].p[0].x-.5)<1e-8);assert.ok(route[0].p[0].y>=.85);
+ assert.ok(route.at(-1).p[3].x<.4);assert.ok(route.at(-1).p[3].y<.45);
+ assert.ok(s.roads.some(r=>!r.route));assert.match(h.find('.tt-quick span').textContent,/Roundabout/);
+ const Store=require('../store.js');assert.deepEqual(Store.migrateSketch(s),s);
+ const exportBefore=h.api.exportSVG();h.api.setState(s);assert.equal(h.api.exportSVG(),exportBefore);
+ assert.doesNotMatch(exportBefore,/NaN|undefined|polyline/);
+ const undoHarness=setup();undoHarness.stroke(ink);undoHarness.click(undoHarness.find('.tt-quick'));assert.equal(undoHarness.api.getState().roads.length,0);assert.equal(undoHarness.api.getState().raw.length,0);
+});
+
+test('manual ring branches snap and stay independent through grouped surface edits, delete and undo',()=>{
+ const h=setup();h.stroke(roundaboutInk());const original=plain(h.api.getState()),ring=original.roads.find(r=>!r.route),start=onCanvas(bez(ring.p,.5));
+ h.stroke([start,[start[0]+30,start[1]],[345,start[1]]]);const withBranch=plain(h.api.getState()),branch=withBranch.roads.at(-1);
+ assert.equal(withBranch.roads.length,original.roads.length+1);assert.ok(branch.attach);assert.ok(original.roads.some(r=>r.id===branch.attach.id));assert.equal(branch.roundaboutId,undefined);assert.equal(branch.route,false);
+ assert.deepEqual(withBranch.roads.slice(0,-1),original.roads);
+ const approach=withBranch.roads.find(r=>r.route);h.tap(...onCanvas(bez(approach.p,.25)));assert.match(h.find('.tt-delete').attrs['aria-label'],/roundabout/);
+ h.click(h.surfaces.find(b=>b.dataset.surface==='gravel'));const surfaced=plain(h.api.getState());assert.ok(surfaced.roads.filter(r=>r.roundaboutId).every(r=>r.type==='gravel'));assert.equal(surfaced.roads.at(-1).type,'tarmac');
+ h.click(h.find('.tt-delete'));const deleted=plain(h.api.getState());assert.equal(deleted.roads.length,1);assert.equal(deleted.roads[0].attach,undefined);assert.deepEqual(deleted.roads[0].p,branch.p);
+ h.click(h.find('.tt-quick'));assert.deepEqual(plain(h.api.getState()),surfaced);
+ require('../store.js').migrateSketch(plain(h.api.getState()));
+});
+
+test('roundabout gesture recognition stays scoped to the first road and preserves placed landmarks',()=>{
+ const h=setup();h.click(h.favourite('house'));h.tap(320,90);const house=plain(h.api.getState().features[0]);h.stroke(roundaboutInk());assert.ok(h.api.getState().roads.length>1);assert.deepEqual(plain(h.api.getState().features[0]),house);
+ h.stroke(roundaboutInk());assert.equal(h.api.getState().roads.filter(r=>!r.roundaboutId).length,1);
+ const water=setup();water.click(water.favourite('water'));water.stroke(roundaboutInk());assert.equal(water.api.getState().roads.length,0);assert.equal(water.api.getState().features.length,1);
+ const invalid=plain(h.api.getState());invalid.roads[0].roundaboutId={};assert.throws(()=>require('../store.js').migrateSketch(invalid),/roundabout group/);
 });
