@@ -1,4 +1,4 @@
-const CACHE = 'rallymaker-roadbook-v3-20260905d';
+const CACHE = 'rallymaker-roadbook-v3-20260905e';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './editor.js', './note-media.js', './icons.js', './store.js', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(path => new Request(path, {cache:'reload'}))))));
 // A new release waits until existing app tabs close; never mix new HTML with old JS.
