@@ -1,340 +1,60 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Junction sketch — prototype</title>
-<style>
-:root{
---navy:#01143C; --raised:#0F2452; --raised2:#1A3268; --tan:#D0A27C; --blue:#265BCA;
---paper:#F4F4F5; --muted:#9AA3B2; --muted2:#6B7484; --danger:#EF2D56;
---pill:1024px; --sheet:24px;
---font: Inter, -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--navy);color:var(--paper);font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-body{display:flex;flex-direction:column;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
-.stage{position:relative;flex:1;min-height:0;margin:8px 8px 0;border-radius:var(--sheet);overflow:hidden;background:var(--paper)}
-#c{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
-.float{position:absolute;display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:var(--pill);background:rgba(255,255,255,.94);color:var(--navy);font:600 15px var(--font);border:0;cursor:pointer;box-shadow:0 0 0 1px rgba(1,20,60,.08),0 6px 16px rgba(1,20,60,.14)}
-.float:active{transform:scale(.97)}
-#back{top:12px;left:12px}
-#done{top:12px;right:12px;background:var(--tan)}
-#hint{position:absolute;left:12px;right:12px;bottom:12px;padding:10px 14px;border-radius:16px;background:rgba(1,20,60,.86);color:var(--paper);font-size:14px;line-height:1.35;pointer-events:none}
-#toast{position:absolute;top:66px;left:50%;transform:translateX(-50%);height:38px;padding:0 6px 0 16px;display:flex;align-items:center;gap:10px;border-radius:var(--pill);background:var(--navy);color:var(--paper);font:600 13px var(--font);border:0;opacity:0;pointer-events:none;transition:opacity .18s;white-space:nowrap}
-#toast.show{opacity:1;pointer-events:auto}
-#toast b{background:var(--tan);color:var(--navy);border-radius:var(--pill);padding:6px 12px;font-weight:700}
-.types{display:flex;gap:8px;padding:0 8px;height:0;overflow:hidden;transition:height .18s}
-.types.show{height:70px;padding-top:10px}
-.types button{flex:1;height:60px;border-radius:16px;border:2px solid transparent;background:var(--raised);color:var(--muted);font:600 13px var(--font);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer}
-.types button.on{background:var(--raised2);border-color:var(--tan);color:var(--paper)}
-.types button svg{width:40px;height:8px;display:block;overflow:visible}
-.types button.act{flex:.8;color:var(--paper)}
-.types button.del{flex:.55;color:var(--danger);font-size:18px}
-.bar{display:flex;gap:8px;padding:10px 8px 6px}
-.bar button{flex:1;height:64px;border-radius:18px;border:2px solid transparent;background:var(--raised);color:var(--muted);font:600 15px var(--font);cursor:pointer}
-.bar button.on{background:var(--raised2);border-color:var(--tan);color:var(--paper)}
-.bar button:active,.types button:active{transform:scale(.97)}
-.bar button:disabled{opacity:.35}
-.sub{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:4px 16px calc(12px + env(safe-area-inset-bottom));font-size:12px;color:var(--muted)}
-.sub label{display:flex;align-items:center;gap:8px;cursor:pointer}
-.sub input{appearance:none;-webkit-appearance:none;width:40px;height:22px;border-radius:11px;background:var(--raised2);position:relative;outline:0;margin:0;cursor:pointer}
-.sub input:checked{background:var(--tan)}
-.sub input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--paper);transition:left .15s}
-.sub input:checked::after{left:21px;background:var(--navy)}
-#sheet{position:fixed;inset:0;background:rgba(1,20,60,.6);display:none;align-items:flex-end;justify-content:center;z-index:10}
-#sheet.show{display:flex}
-.panel{width:100%;max-width:560px;background:var(--navy);border-radius:var(--sheet) var(--sheet) 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));max-height:90dvh;overflow:auto}
-.grab{width:36px;height:4px;border-radius:2px;background:var(--raised2);margin:0 auto 12px}
-.panel h2{margin:0 0 4px;font-size:20px;font-weight:700}
-.panel p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.4}
-.cell{display:grid;grid-template-columns:76px 140px 1fr;background:var(--paper);color:var(--navy);border-radius:16px;overflow:hidden;min-height:140px}
-.cell>div{padding:10px;border-right:1px solid #CFCFD4}
-.cell>div:last-child{border-right:0}
-.dist{display:flex;flex-direction:column;justify-content:space-between;font-variant-numeric:tabular-nums;font-weight:700;font-size:18px}
-.dist small{display:block;font-size:10px;color:#7B7F8A;font-weight:500}
-.tulip{display:flex;align-items:center;justify-content:center}
-.notes{font-size:12px;line-height:1.4}
-.notes em{display:block;color:#7B7F8A;font-style:normal;margin-top:6px;font-size:11px}
-textarea{width:100%;height:118px;margin-top:12px;background:var(--raised);color:var(--paper);border:0;border-radius:12px;padding:10px;font:11.5px ui-monospace,Menlo,Consolas,monospace;resize:vertical;-webkit-user-select:text;user-select:text}
-.row{display:flex;gap:8px;margin-top:12px}
-.row button{flex:1;height:52px;border-radius:16px;border:0;font:700 15px var(--font);cursor:pointer}
-.primary{background:var(--blue);color:var(--paper)}
-.ghost{background:var(--raised);color:var(--paper)}
-:focus-visible{outline:2px solid var(--tan);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#01143c">
+  <meta name="description" content="Make a roadbook note at the junction. Sketch a tulip, record a voice note and keep photos with the marked point.">
+  <title>RallyMaker · Roadbook notes</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<div class="stage" id="stage">
-<canvas id="c"></canvas>
-<button class="float" id="back" type="button">‹ WP 14</button>
-<button class="float" id="done" type="button">Done</button>
-<button id="toast" type="button"><span id="toastText">Converted</span><b>Undo</b></button>
-<div id="hint">Draw your route: from where you come to where you go. Then lift.</div>
-</div>
-<div class="types" id="types">
-<button type="button" data-type="tarmac"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>Tarmac</button>
-<button type="button" data-type="gravel"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 6"/></svg>Gravel</button>
-<button type="button" data-type="track"><svg viewBox="0 0 40 8"><path d="M2 4H38" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 7"/></svg>Track</button>
-<button type="button" class="act" id="split">Split</button>
-<button type="button" class="del" id="del" aria-label="Delete road">✕</button>
-</div>
-<div class="bar">
-<button type="button" id="pen" class="on">Pen</button>
-<button type="button" id="edit">Edit</button>
-<button type="button" id="undo">Undo</button>
-<button type="button" id="clear">Clear</button>
-</div>
-<div class="sub">
-<label><input type="checkbox" id="snap" checked>Snap to straight lines</label>
-<label><input type="checkbox" id="ink">Show raw ink</label>
-</div>
-<div id="sheet">
-<div class="panel">
-<div class="grab"></div>
-<h2>Roadbook cell</h2>
-<p>What the desktop receives: the tulip as vectors, road types per section, and the raw ink kept for reference.</p>
-<div class="cell">
-<div class="dist"><span>12.40<small>total</small></span><span>0.85<small>from WP 13</small></span></div>
-<div class="tulip"><canvas id="mini" width="132" height="132" style="width:120px;height:120px"></canvas></div>
-<div class="notes" id="notes"></div>
-</div>
-<textarea id="json" readonly spellcheck="false"></textarea>
-<div class="row">
-<button type="button" class="ghost" id="close">Back to sketch</button>
-<button type="button" class="primary" id="copy">Copy JSON</button>
-</div>
-</div>
-</div>
-<script id="model">
-const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-function perpDist(p,a,b){const dx=b.x-a.x,dy=b.y-a.y;const L=dx*dx+dy*dy;if(L===0)return dist(p,a);const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));}
-function rdp(pts,eps){if(pts.length<3)return pts.slice();let maxD=0,idx=0;const a=pts[0],b=pts[pts.length-1];for(let i=1;i<pts.length-1;i++){const d=perpDist(pts[i],a,b);if(d>maxD){maxD=d;idx=i;}}if(maxD>eps){const l=rdp(pts.slice(0,idx+1),eps),r=rdp(pts.slice(idx),eps);return l.slice(0,-1).concat(r);}return [a,b];}
-function isStraight(pts){const a=pts[0],b=pts[pts.length-1];const chord=dist(a,b);let maxD=0;for(const p of pts)maxD=Math.max(maxD,perpDist(p,a,b));return maxD<Math.max(10,chord*0.06);}
-function snapAngle(a,b,step){const s=(step||15)*Math.PI/180;const ang=Math.atan2(b.y-a.y,b.x-a.x);const na=Math.round(ang/s)*s;const L=dist(a,b);return {x:a.x+Math.cos(na)*L,y:a.y+Math.sin(na)*L};}
-function nearestOnPolyline(p,pts){let best={d:Infinity,q:null,seg:0,t:0};for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];const dx=b.x-a.x,dy=b.y-a.y;const L=dx*dx+dy*dy;const t=L===0?0:Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/L));const q={x:a.x+t*dx,y:a.y+t*dy};const d=dist(p,q);if(d<best.d)best={d,q,seg:i,t};}return best;}
-function segIntersect(a,b,c,d){const rx=b.x-a.x,ry=b.y-a.y,sx=d.x-c.x,sy=d.y-c.y;const den=rx*sy-ry*sx;if(Math.abs(den)<1e-9)return null;const t=((c.x-a.x)*sy-(c.y-a.y)*sx)/den;const u=((c.x-a.x)*ry-(c.y-a.y)*rx)/den;if(t>0.03&&t<0.97&&u>0.03&&u<0.97)return {t,u,x:a.x+t*rx,y:a.y+t*ry};return null;}
-function turn(a,b,c){const a1=Math.atan2(b.y-a.y,b.x-a.x),a2=Math.atan2(c.y-b.y,c.x-b.x);let d=Math.abs(a2-a1);if(d>Math.PI)d=2*Math.PI-d;return d;}
-function strokeLength(pts){let L=0;for(let i=1;i<pts.length;i++)L+=dist(pts[i-1],pts[i]);return L;}
-const SNAP_R=28, NODE_R=22, MIN_LEN=20, RDP_EPS=7, REUSE_R=12;
-let state={pts:{},roads:[],raw:[]};
-let nextId=1;
-const opts={snap:true,ink:false};
-const history=[];
-const P=id=>state.pts[id];
-function newPt(x,y){const id='p'+(nextId++);state.pts[id]={x,y};return id;}
-function roadPts(r){return r.p.map(P);}
-function routePieces(){return state.roads.filter(r=>r.route);}
-function routeStart(){const rp=routePieces();return rp.length?P(rp[0].p[0]):null;}
-function routeEnd(){const rp=routePieces();if(!rp.length)return null;const l=rp[rp.length-1];return {p:P(l.p[l.p.length-1]),prev:P(l.p[l.p.length-2])};}
-function snapshot(){history.push(JSON.stringify({state,nextId}));if(history.length>80)history.shift();}
-function undo(){if(!history.length)return false;const s=JSON.parse(history.pop());state=s.state;nextId=s.nextId;return true;}
-function reset(){snapshot();state={pts:{},roads:[],raw:[]};}
-function defaultType(){const rp=routePieces();return rp.length?rp[rp.length-1].type:'tarmac';}
-function commitStroke(raw){
-if(raw.length<2||strokeLength(raw)<MIN_LEN) return null;
-snapshot();
-state.raw.push(raw.map(p=>({x:+p.x.toFixed(1),y:+p.y.toFixed(1)})));
-let pts=rdp(raw,RDP_EPS);
-if(isStraight(pts)) pts=[pts[0],pts[pts.length-1]];
-const isRoute=routePieces().length===0;
-const ids=pts.map(p=>newPt(p.x,p.y));
-const shared=[false,false];
-if(!isRoute){
-[0,ids.length-1].forEach((end,k)=>{
-const p=P(ids[end]);let best=null;
-for(const r of state.roads){const n=nearestOnPolyline(p,roadPts(r));if(n.d<SNAP_R&&(!best||n.d<best.n.d))best={r,n};}
-if(!best)return;
-const {r,n}=best;let reuse=null;
-for(const pid of r.p){if(dist(P(pid),n.q)<REUSE_R){reuse=pid;break;}}
-delete state.pts[ids[end]];
-if(reuse){ids[end]=reuse;}else{const nid=newPt(n.q.x,n.q.y);r.p.splice(n.seg+1,0,nid);ids[end]=nid;}
-shared[k]=true;
-});
-}
-if(opts.snap&&ids.length===2&&ids[0]!==ids[1]){
-const a=P(ids[0]),b=P(ids[1]);
-if(shared[0]&&!shared[1])Object.assign(b,snapAngle(a,b));
-else if(!shared[0]&&shared[1])Object.assign(a,snapAngle(b,a));
-else if(!shared[0]&&!shared[1])Object.assign(b,snapAngle(a,b));
-}
-if(!isRoute){
-for(const r of state.roads){
-let found=true,guard=0;
-while(found&&guard++<8){found=false;
-outer:for(let i=0;i<ids.length-1;i++){for(let j=0;j<r.p.length-1;j++){
-if(ids[i]===r.p[j]||ids[i]===r.p[j+1]||ids[i+1]===r.p[j]||ids[i+1]===r.p[j+1])continue;
-const x=segIntersect(P(ids[i]),P(ids[i+1]),P(r.p[j]),P(r.p[j+1]));
-if(x){const nid=newPt(x.x,x.y);ids.splice(i+1,0,nid);r.p.splice(j+1,0,nid);found=true;break outer;}
-}}
-}
-}
-}
-const road={id:'r'+(nextId++),p:ids,type:defaultType(),route:isRoute};
-state.roads.push(road);
-return road;
-}
-function splitRoad(road,pt){
-const pts=roadPts(road);const n=nearestOnPolyline(pt,pts);
-if(n.d>NODE_R)return null;
-if(dist(n.q,pts[0])<REUSE_R||dist(n.q,pts[pts.length-1])<REUSE_R)return null;
-snapshot();
-let idx=-1;for(let i=1;i<road.p.length-1;i++){if(dist(P(road.p[i]),n.q)<REUSE_R){idx=i;break;}}
-if(idx<0){const nid=newPt(n.q.x,n.q.y);road.p.splice(n.seg+1,0,nid);idx=n.seg+1;}
-const a=road.p.slice(0,idx+1),b=road.p.slice(idx);
-road.p=a;
-const r2={id:'r'+(nextId++),p:b,type:road.type,route:road.route};
-state.roads.splice(state.roads.indexOf(road)+1,0,r2);
-return r2;
-}
-function deleteRoad(road){snapshot();state.roads.splice(state.roads.indexOf(road),1);}
-function hitPoint(pt){let best=null;for(const r of state.roads){for(const pid of r.p){const d=dist(P(pid),pt);if(d<NODE_R&&(!best||d<best.d))best={pid,d};}}return best?best.pid:null;}
-function hitRoad(pt){let best=null;for(const r of state.roads){if(r.p.length<2)continue;const n=nearestOnPolyline(pt,roadPts(r));const tol=r.route?20:16;if(n.d<tol&&(!best||n.d<best.n.d))best={r,n};}return best;}
-function exportJSON(){
-const all=[];for(const r of state.roads)for(const pid of r.p)all.push(P(pid));
-if(!all.length)return null;
-const xs=all.map(p=>p.x),ys=all.map(p=>p.y);
-const minX=Math.min(...xs),minY=Math.min(...ys);
-const s=Math.max(1,Math.max(...xs)-minX,Math.max(...ys)-minY);
-const norm=p=>[+((p.x-minX)/s).toFixed(3),+((p.y-minY)/s).toFixed(3)];
-const pc=r=>({type:r.type,points:roadPts(r).map(norm)});
-return {waypoint:'WP 14',coords:'normalized to the longest side, y down',route:routePieces().map(pc),roads:state.roads.filter(r=>!r.route).map(pc),rawStrokes:state.raw.length};
-}
-</script>
-<script>
-const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),stage=document.getElementById('stage');
-const hint=document.getElementById('hint'),toastEl=document.getElementById('toast'),toastText=document.getElementById('toastText');
-const typesRow=document.getElementById('types');
-const COL={ink:'#01143C',blue:'#265BCA',grey:'#7F8794',dot:'#C9CDD6'};
-let mode='pen',selected=null,splitAt=null;
-let drawing=false,raw=[],pending=null,pendingTimer=null,dragging=null,toastTimer=null;
-let W=0,H=0,dpr=1;
-function resize(){const r=stage.getBoundingClientRect();dpr=Math.min(3,window.devicePixelRatio||1);W=r.width;H=r.height;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);render();}
-new ResizeObserver(resize).observe(stage);
-function dash(type,route){if(type==='gravel')return route?[14,10]:[8,6];if(type==='track')return route?[1,9]:[1,7];return [];}
-function tracePath(pts){
-ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
-if(pts.length===2){ctx.lineTo(pts[1].x,pts[1].y);return;}
-for(let i=1;i<pts.length-1;i++){const a=pts[i-1],b=pts[i],c=pts[i+1];
-if(turn(a,b,c)>Math.PI*0.28)ctx.lineTo(b.x,b.y);
-else ctx.quadraticCurveTo(b.x,b.y,(b.x+c.x)/2,(b.y+c.y)/2);}
-const l=pts[pts.length-1];ctx.lineTo(l.x,l.y);
-}
-function polyline(pts){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);}
-function arrow(tip,prev,size,width,color){if(!prev)return;const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash([]);ctx.beginPath();for(const s of[-1,1]){const a=ang+Math.PI+s*0.62;ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x+Math.cos(a)*size,tip.y+Math.sin(a)*size);}ctx.stroke();}
-function drawRoads(scale){
-ctx.lineCap='round';ctx.lineJoin='round';
-for(const r of state.roads){if(r.p.length<2)continue;const pts=roadPts(r);ctx.lineWidth=(r.route?8:4)*scale;ctx.strokeStyle=r===selected?COL.blue:COL.ink;ctx.setLineDash(dash(r.type,r.route).map(v=>v*scale));tracePath(pts);ctx.stroke();}
-ctx.setLineDash([]);
-const s=routeStart(),e=routeEnd();
-if(s){ctx.fillStyle=COL.ink;ctx.beginPath();ctx.arc(s.x,s.y,11*scale,0,Math.PI*2);ctx.fill();}
-if(e)arrow(e.p,e.prev,18*scale,8*scale,routePieces()[routePieces().length-1]===selected?COL.blue:COL.ink);
-}
-function render(){
-ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
-ctx.fillStyle=COL.dot;for(let x=24;x<W;x+=24)for(let y=24;y<H;y+=24){ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill();}
-ctx.lineCap='round';ctx.lineJoin='round';
-if(opts.ink){ctx.strokeStyle='rgba(127,135,148,.85)';ctx.lineWidth=3;ctx.setLineDash([7,5]);for(const s of state.raw){polyline(s);ctx.stroke();}ctx.setLineDash([]);}
-drawRoads(1);
-const live=drawing?raw:pending;
-if(live&&live.length>1){ctx.strokeStyle=routePieces().length?'rgba(1,20,60,.55)':'rgba(1,20,60,.75)';ctx.lineWidth=routePieces().length?4:7;ctx.setLineDash([]);polyline(live);ctx.stroke();}
-if(mode==='edit'){
-const seen=new Set();
-const rp=routePieces();const startId=rp.length?rp[0].p[0]:null;
-for(const r of state.roads)for(const pid of r.p){if(seen.has(pid))continue;seen.add(pid);const p=P(pid);const sel=selected&&selected.p.includes(pid);
-if(pid===startId){ctx.beginPath();ctx.arc(p.x,p.y,15,0,Math.PI*2);ctx.lineWidth=2;ctx.strokeStyle=sel?COL.blue:COL.ink;ctx.stroke();ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);ctx.strokeStyle='#fff';ctx.stroke();continue;}
-ctx.beginPath();ctx.arc(p.x,p.y,9,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=sel?COL.blue:COL.ink;ctx.stroke();}
-if(selected&&splitAt){ctx.beginPath();ctx.arc(splitAt.x,splitAt.y,8,0,Math.PI*2);ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);}
-}
-}
-function pos(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
-function commitPending(){if(!pending)return;clearTimeout(pendingTimer);const r=commitStroke(pending);pending=null;if(r)toast(r.route?'Route converted':'Road added');updateUI();render();}
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
-canvas.addEventListener('pointerdown',e=>{
-if(e.pointerType==='mouse'&&e.button!==0)return;
-canvas.setPointerCapture(e.pointerId);const p=pos(e);
-if(mode==='pen'){
-if(pending&&dist(pending[pending.length-1],p)<36){clearTimeout(pendingTimer);raw=pending;pending=null;raw.push(p);}
-else{commitPending();raw=[p];}
-drawing=true;render();return;
-}
-const pid=hitPoint(p);
-if(pid){dragging={pid,moved:false};return;}
-const hit=hitRoad(p);
-if(hit){selected=hit.r;splitAt=hit.n.q;}else{selected=null;splitAt=null;}
-updateUI();render();
-});
-canvas.addEventListener('pointermove',e=>{
-if(drawing){const p=pos(e);if(dist(raw[raw.length-1],p)>=1.5){raw.push(p);render();}return;}
-if(dragging){const p=pos(e);if(!dragging.moved){snapshot();dragging.moved=true;}const pt=P(dragging.pid);pt.x=Math.max(0,Math.min(W,p.x));pt.y=Math.max(0,Math.min(H,p.y));if(splitAt&&selected)splitAt=null;render();}
-});
-function up(){
-if(drawing){drawing=false;
-if(strokeLength(raw)<MIN_LEN){const hit=hitRoad(raw[0]);if(hit){selected=hit.r;splitAt=hit.n.q;setMode('edit');}raw=[];render();return;}
-pending=raw;raw=[];pendingTimer=setTimeout(commitPending,280);render();return;}
-if(dragging){dragging=null;render();}
-}
-canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);
-function toast(text){toastText.textContent=text;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2400);}
-toastEl.addEventListener('click',()=>{toastEl.classList.remove('show');doUndo();});
-function doUndo(){if(pending){clearTimeout(pendingTimer);pending=null;}else undo();selected=null;splitAt=null;updateUI();render();}
-function setMode(m){commitPending();mode=m;if(m==='pen'){selected=null;splitAt=null;}updateUI();render();}
-document.getElementById('pen').onclick=()=>setMode('pen');
-document.getElementById('edit').onclick=()=>setMode('edit');
-document.getElementById('undo').onclick=doUndo;
-document.getElementById('clear').onclick=()=>{commitPending();if(!state.roads.length&&!pending)return;reset();selected=null;splitAt=null;toast('Cleared');updateUI();render();};
-document.getElementById('snap').onchange=e=>{opts.snap=e.target.checked;};
-document.getElementById('ink').onchange=e=>{opts.ink=e.target.checked;render();};
-typesRow.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(!selected)return;if(selected.type===b.dataset.type)return;snapshot();selected.type=b.dataset.type;updateUI();render();});
-document.getElementById('split').onclick=()=>{if(!selected||!splitAt)return;const r2=splitRoad(selected,splitAt);if(r2){selected=r2;splitAt=null;toast('Split');}else toast('Tap the line where you want the split');updateUI();render();};
-document.getElementById('del').onclick=()=>{if(!selected)return;deleteRoad(selected);selected=null;splitAt=null;toast('Road deleted');updateUI();render();};
-function updateUI(){
-document.getElementById('pen').classList.toggle('on',mode==='pen');
-document.getElementById('edit').classList.toggle('on',mode==='edit');
-document.getElementById('undo').disabled=!history.length&&!pending;
-typesRow.classList.toggle('show',mode==='edit'&&!!selected);
-typesRow.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',!!selected&&selected.type===b.dataset.type));
-document.getElementById('split').disabled=!splitAt;
-const hasRoute=routePieces().length>0;
-if(mode==='pen')hint.textContent=hasRoute?'Now the other roads. Their ends snap onto the route; a crossing makes a junction.':'Draw your route: from where you come to where you go. Then lift.';
-else hint.textContent=selected?'Road type below. Drag a node to fix a bend or an angle. Split cuts at the marked spot.':'Tap a road to select it. Drag nodes to adjust. Tap the line where you want a split.';
-}
-const sheet=document.getElementById('sheet'),mini=document.getElementById('mini');
-document.getElementById('done').onclick=()=>{commitPending();openSheet();};
-document.getElementById('close').onclick=()=>sheet.classList.remove('show');
-sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.classList.remove('show');});
-document.getElementById('copy').onclick=async()=>{const t=document.getElementById('json');try{await navigator.clipboard.writeText(t.value);toastInSheet('Copied');}catch(_){t.focus();t.select();}};
-function toastInSheet(msg){const b=document.getElementById('copy');const o=b.textContent;b.textContent=msg;setTimeout(()=>b.textContent=o,1200);}
-function openSheet(){
-const data=exportJSON();
-const m=mini.getContext('2d');const dm=2;mini.width=132*dm;mini.height=132*dm;m.setTransform(dm,0,0,dm,0,0);m.clearRect(0,0,132,132);
-if(data){
-const all=[];for(const r of state.roads)for(const pid of r.p)all.push(P(pid));
-const xs=all.map(p=>p.x),ys=all.map(p=>p.y);const minX=Math.min(...xs),minY=Math.min(...ys),w=Math.max(...xs)-minX,h=Math.max(...ys)-minY;
-const pad=16,s=Math.min((132-2*pad)/Math.max(w,1),(132-2*pad)/Math.max(h,1),1.2);
-const ox=pad+((132-2*pad)-w*s)/2-minX*s,oy=pad+((132-2*pad)-h*s)/2-minY*s;
-m.save();m.translate(ox,oy);m.scale(s,s);
-drawWith(m,s);
-m.restore();
-}
-const rp=routePieces();const side=state.roads.length-rp.length;
-const types=rp.map(r=>r.type);const uniq=[...new Set(types)];
-document.getElementById('notes').innerHTML=rp.length?`Route: ${uniq.join(' → ')}.<br>${side} other road${side===1?'':'s'} at the junction.<em>${state.raw.length} raw stroke${state.raw.length===1?'':'s'} kept · sketch made in the field</em>`:`No route yet.<em>Draw the route first, then the other roads.</em>`;
-document.getElementById('json').value=data?JSON.stringify(data,null,1):'{}';
-sheet.classList.add('show');
-}
-function drawWith(m,s){
-m.lineCap='round';m.lineJoin='round';
-const trace=(pts)=>{m.beginPath();m.moveTo(pts[0].x,pts[0].y);if(pts.length===2){m.lineTo(pts[1].x,pts[1].y);return;}for(let i=1;i<pts.length-1;i++){const a=pts[i-1],b=pts[i],c=pts[i+1];if(turn(a,b,c)>Math.PI*0.28)m.lineTo(b.x,b.y);else m.quadraticCurveTo(b.x,b.y,(b.x+c.x)/2,(b.y+c.y)/2);}const l=pts[pts.length-1];m.lineTo(l.x,l.y);};
-for(const r of state.roads){if(r.p.length<2)continue;const pts=roadPts(r);m.lineWidth=(r.route?6:3)/s;m.strokeStyle=COL.ink;m.setLineDash(dash(r.type,r.route).map(v=>v/s));trace(pts);m.stroke();}
-m.setLineDash([]);
-const st=routeStart(),e=routeEnd();
-if(st){m.fillStyle=COL.ink;m.beginPath();m.arc(st.x,st.y,8/s,0,Math.PI*2);m.fill();}
-if(e&&e.prev){const ang=Math.atan2(e.p.y-e.prev.y,e.p.x-e.prev.x);m.strokeStyle=COL.ink;m.lineWidth=6/s;m.beginPath();for(const k of[-1,1]){const a=ang+Math.PI+k*0.62;m.moveTo(e.p.x,e.p.y);m.lineTo(e.p.x+Math.cos(a)*14/s,e.p.y+Math.sin(a)*14/s);}m.stroke();}
-}
-document.getElementById('back').onclick=()=>toast('Back to WP 14 (not in this prototype)');
-updateUI();
-</script>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">R<span>↗</span></span><div><strong>RallyMaker</strong><span>Roadbook notes</span></div></div>
+    <div class="header-actions"><button id="open-notes" class="quiet" type="button">Points <span id="note-count">0</span></button><button id="open-export" class="quiet" type="button">Export</button></div>
+  </header>
+  <main class="app" id="app" aria-busy="true">
+    <div class="point-bar">
+      <div class="point-info"><strong id="point-title">Ready for the next point</strong><span id="point-meta">Mark it now. Finish the note when you can.</span></div>
+      <button id="gps-toggle" class="gps-button" type="button" aria-pressed="false">Enable GPS</button>
+    </div>
+    <div class="workspace">
+      <section class="editor" aria-label="Tulip drawing">
+        <div class="paper" id="paper">
+          <div class="paper-controls"><div class="undo-group"><button id="undo" class="paper-button" type="button" aria-label="Undo last drawing change" disabled>↶ <span>Undo</span></button><button id="redo" class="paper-button" type="button" aria-label="Redo drawing change" disabled>↷</button></div><button id="raw-ink" class="paper-button" type="button" aria-pressed="false">Raw ink</button></div>
+          <svg id="drawing" viewBox="0 0 480 480" role="img" aria-label="Tulip sketch. Draw the route from arrival to exit, then pull side roads out from it."><title>Junction sketch</title></svg>
+          <div class="empty-state" id="empty-state"><div class="empty-tulip" aria-hidden="true">●<span>↗</span></div><strong>Draw the way you go.</strong><p>Your first stroke is the route.<br>Then add the other roads.</p><button id="mark-point" class="primary" type="button">Mark this point</button></div>
+          <div class="paper-footer"><span id="paper-caption">Arrival → exit</span><span id="save-status" role="status" aria-live="polite">Opening local notes…</span></div>
+        </div>
+        <div class="draw-toolbar" role="group" aria-label="Drawing tools"><button id="draw-mode" class="tool selected" type="button" aria-pressed="true"><span aria-hidden="true">╱</span>Draw</button><button id="adjust-mode" class="tool" type="button" aria-pressed="false"><span aria-hidden="true">✥</span>Adjust</button><button id="landmark-mode" class="tool" type="button" aria-expanded="false"><span aria-hidden="true">⊙</span>Landmark</button></div>
+        <div id="landmark-palette" class="landmark-palette" hidden aria-label="Landmark favourites"><button type="button" data-symbol="house">House</button><button type="button" data-symbol="tree">Tree</button><button type="button" data-symbol="gate">Gate</button><button type="button" data-symbol="bridge">Bridge</button><button type="button" data-symbol="sign">Sign</button><button type="button" data-symbol="danger">Danger</button></div>
+        <div id="road-tools" class="road-tools" hidden><div class="surface-types" role="group" aria-label="Road surface"><button type="button" data-surface="tarmac">Tarmac</button><button type="button" data-surface="gravel">Gravel</button><button type="button" data-surface="track">Track</button></div><div class="road-actions"><button id="split-road" type="button">Surface starts here</button><button id="unjoin-road" type="button">Unjoin point</button><button id="delete-road" class="danger-quiet" type="button">Delete road</button></div></div>
+        <div id="landmark-tools" class="road-tools" hidden><span id="selected-landmark">Landmark</span><button id="delete-landmark" class="danger-quiet" type="button">Delete landmark</button></div>
+        <div class="edit-extras" id="edit-extras" hidden><button id="reverse-route" type="button">Reverse route</button><button id="clear-sketch" type="button">Clear sketch</button></div>
+        <p class="gesture-hint" id="gesture-hint" aria-live="polite">Start where you arrive. Lift where you leave.</p>
+      </section>
+      <aside class="capture-panel" aria-label="Point details">
+        <div class="capture-heading"><span>This point</span><button id="review-flag" class="quiet" type="button" aria-pressed="false">⚑ Needs check</button></div>
+        <div class="capture-actions"><button id="voice" type="button"><span class="record-dot" aria-hidden="true"></span><span id="voice-label">Voice</span></button><button id="photo" type="button">▧ Photo</button><button id="open-detail" type="button">≡ Note</button><button id="preview" type="button">↗ Cell</button></div>
+        <div class="attachment-strip" id="attachments" aria-label="Photos and recordings" hidden></div>
+        <div class="desktop-note"><label for="quick-note">What distinguishes this point?</label><textarea id="quick-note" rows="3" placeholder="A sign, a landmark, something to check…"></textarea></div>
+        <div class="capture-bottom"><button id="keep-next" class="primary" type="button">Keep & next <span aria-hidden="true">→</span></button></div>
+        <p class="local-note">Notes stay on this device. Export a backup before clearing browser data.</p>
+        <div class="recent-heading">Recent points</div><div id="recent-notes" class="recent-notes"></div>
+      </aside>
+    </div>
+  </main>
+  <input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+  <input id="import-input" type="file" accept="application/json,.json" hidden>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="notes-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Your recce</span><h1>Roadbook points</h1></div><button type="button" class="close-dialog" aria-label="Close points">✕</button></div><div class="dialog-content"><p class="subtle" id="notes-empty">Your saved points will appear here.</p><div id="notes-list" class="notes-list"></div></div><div class="dialog-footer"><button id="new-point" class="primary" type="button">Mark another point</button><button id="import-project" type="button">Import backup</button></div></dialog>
+  <dialog id="detail-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow" id="detail-number">This point</span><h1>Capture the detail</h1></div><button type="button" class="close-dialog" aria-label="Close point details">✕</button></div><div class="dialog-content"><label for="note-text">Roadbook note</label><textarea id="note-text" rows="4" placeholder="For example: gravel starts after the right turn."></textarea><label for="trip-km">Total distance · km</label><input id="trip-km" type="number" min="0" max="100000" step="0.001" inputmode="decimal" placeholder="Optional trip-meter reading"><p class="subtle">Use your trip-meter reading. GPS location alone is not a measured roadbook distance.</p><div class="anchor-detail" id="anchor-detail"></div><div id="detail-media" class="detail-media"></div></div><div class="dialog-footer"><button id="detail-done" class="primary" type="button">Keep details</button></div></dialog>
+  <dialog id="preview-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Preview</span><h1>Roadbook cell</h1></div><button type="button" class="close-dialog" aria-label="Close roadbook preview">✕</button></div><div class="dialog-content"><div class="roadbook-cell"><div class="cell-distances"><strong id="cell-total">—</strong><small>TOTAL KM</small><strong id="cell-partial">—</strong><small>PARTIAL KM</small><span id="cell-number">01</span></div><svg id="cell-tulip" viewBox="0 0 480 480" role="img" aria-label="Roadbook tulip preview"></svg><div class="cell-text" id="cell-text"></div></div><p class="subtle" id="preview-warning">Draft symbols and surface patterns. Review against your event's roadbook conventions.</p></div><div class="dialog-footer"><button id="download-svg" class="primary" type="button">Download SVG</button><button id="preview-back" type="button">Back to sketch</button></div></dialog>
+  <dialog id="export-dialog" class="sheet-dialog"><div class="dialog-top"><div><span class="eyebrow">Keep your source</span><h1>Export roadbook notes</h1></div><button type="button" class="close-dialog" aria-label="Close export">✕</button></div><div class="dialog-content"><button id="download-backup" class="export-option" type="button"><strong>Complete backup</strong><span>Every point, editable tulip, raw ink, photos and audio.</span></button><button id="download-note" class="export-option" type="button"><strong>This point · JSON</strong><span>Editable drawing, anchor and text. Media files are included in the complete backup.</span></button><button id="export-svg" class="export-option" type="button"><strong>This tulip · SVG</strong><span>Scalable roadbook artwork.</span></button><button id="export-raw" class="export-option" type="button"><strong>Original ink · PNG</strong><span>Your finger strokes before conversion.</span></button><p class="subtle" id="export-state">Exports are downloaded directly to your device.</p></div></dialog>
+  <script src="./model.js" defer></script>
+  <script src="./store.js" defer></script>
+  <script src="./app.js" defer></script>
 </body>
 </html>
