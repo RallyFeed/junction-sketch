@@ -6,11 +6,11 @@ A white, one-hand roadbook sketchpad with blue controls. No build step or extern
 
 ## Capture a point
 
-Draw the route from its entry dot toward the exit arrow. Strokes become cubic curves. Draw a fork from a road and it snaps to that curve; the original road keeps its shape. A brief lift near the previous endpoint continues the stroke.
+Draw the route from its entry dot toward the exit arrow. Small wiggles in a nearly straight stroke settle into a clean straight line when you lift; intentional bends remain cubic curves. Draw a fork from a road and it snaps to that curve; the original road keeps its shape. A brief lift near the previous endpoint continues the stroke.
 
 Tap a road to edit with a few handles. Tap empty paper to return to Pen. Selected roads offer surface style and Delete. Undo is always in the thumb toolbar, with a quick Undo immediately after drawing. Clear removes the visible sketch and can be undone; text, attachments and original ink stay with the point.
 
-Four landmark favourites sit above the toolbar. More opens the full searchable collection; Edit lets you choose and reorder favourites. House, tree and similar symbols use tap-to-place. Hedge, sandbank and waterline follow a drawn curve. Selected sandbanks can flip their hatching side.
+Four landmark favourites sit above the toolbar. More opens the full searchable collection; Edit lets you choose and reorder favourites. House, tree and similar symbols use tap-to-place. Hedge, sandbank and waterline follow a drawn curve. Waterlines are blue, hedges green and sandbanks dark sand, including their toolbar samples and SVG exports. Selected sandbanks can flip their hatching side.
 
 Note opens text, photos, voice recording and attached audio. Closing Note lets recording continue, with a Stop control on the drawing. Done finishes media writes and opens the point review. Add an optional trip-meter reading and choose Next point. The header opens saved points.
 

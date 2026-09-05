@@ -4,7 +4,7 @@ const root=document.getElementById('tulip-thumb-flow'),find=s=>root.querySelecto
 const types={
  house:{label:'House',icon:'house',kind:'point'},tree:{label:'Tree',icon:'tree-deciduous',kind:'point'},gate:{label:'Gate',icon:'fence',kind:'point'},
  bridge:{label:'Bridge',icon:'landmark',kind:'point'},sign:{label:'Sign',icon:'signpost',kind:'point'},pole:{label:'Pole',icon:'utility-pole',kind:'point'},rock:{label:'Rock',icon:'mountain',kind:'point'},church:{label:'Church',icon:'church',kind:'point'},
- hedge:{label:'Hedge',icon:'shrub',kind:'line'},bank:{label:'Sandbank',icon:'mountain',kind:'line'},water:{label:'Waterline',icon:'waves',kind:'line'},tower:{label:'Tower',icon:'tower-control',kind:'point'}
+ hedge:{label:'Hedge',icon:'shrub',kind:'line',color:'#39764a'},bank:{label:'Sandbank',icon:'mountain',kind:'line',color:'#8c6b3d'},water:{label:'Waterline',icon:'waves',kind:'line',color:'#2575c4'},tower:{label:'Tower',icon:'tower-control',kind:'point'}
 };
 const copy=x=>JSON.parse(JSON.stringify(x)),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
 const point=(p,t)=>{const a=lerp(p[0],p[1],t),b=lerp(p[1],p[2],t),c=lerp(p[2],p[3],t);return lerp(lerp(a,b,t),lerp(b,c,t),t)};
@@ -69,8 +69,8 @@ function draw(){
  svg.replaceChildren();svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
  for(const r of roads)svg.append(element('path',{d:path(r.p),fill:'none',stroke:chosenRoad()===r?'#245fce':'#12243f','stroke-width':r.route?7:3.5,'stroke-linecap':'round','stroke-linejoin':'round','stroke-dasharray':r.type==='gravel'?'11 8':r.type==='track'?'1 8':'none'}));
  const routePieces=roads.filter(r=>r.route),first=routePieces[0],last=routePieces.at(-1);if(first){const a=first.p[0],[,,q,z]=last.p,ang=Math.atan2((z.y-q.y)*height,(z.x-q.x)*width);svg.append(element('circle',{cx:a.x*width,cy:a.y*height,r:9,fill:'#12243f'}));svg.append(element('path',{d:`M${z.x*width-14*Math.cos(ang-.55)} ${z.y*height-14*Math.sin(ang-.55)} L${z.x*width} ${z.y*height} L${z.x*width-14*Math.cos(ang+.55)} ${z.y*height-14*Math.sin(ang+.55)}`,fill:'none',stroke:'#12243f','stroke-width':6,'stroke-linecap':'round','stroke-linejoin':'round'}))}
- for(const f of features){const color=chosenFeature()===f?'#245fce':'#12243f';if(featureMeta(f).kind==='point')drawPointFeature(f,color);else drawLineFeature(f,color)}
- if(ink.length>1)svg.append(element('polyline',{points:ink.map(p=>`${p.x*width},${p.y*height}`).join(' '),fill:'none',stroke:'#245fce','stroke-width':3,opacity:.6,'stroke-linecap':'round'}));
+ for(const f of features){const color=types[f.type]?.color||(chosenFeature()===f?'#245fce':'#12243f');if(featureMeta(f).kind==='point')drawPointFeature(f,color);else drawLineFeature(f,color)}
+ if(ink.length>1)svg.append(element('polyline',{points:ink.map(p=>`${p.x*width},${p.y*height}`).join(' '),fill:'none',stroke:types[placement]?.color||'#245fce','stroke-width':3,opacity:.6,'stroke-linecap':'round'}));
  const chosen=chosenRoad()||chosenFeature();if(chosen){const handles=chosen.at?[chosen.at]:[0,.5,1].map(t=>point(chosen.p,t));for(const p of handles){svg.append(element('circle',{cx:p.x*width,cy:p.y*height,r:18,fill:'#245fce15'}));svg.append(element('circle',{cx:p.x*width,cy:p.y*height,r:chosen.at?16:7,fill:chosen.at?'none':'#fff',stroke:'#245fce','stroke-width':2}))}}
  syncControls();if(features.some(f=>featureMeta(f).kind==='point')&&globalThis.lucide?.createIcons)globalThis.lucide.createIcons({attrs:{width:22,height:22}});
 }
@@ -112,20 +112,46 @@ function moveHandle(h,dx,dy){
  const {r,t}=h;if(r.at){r.at.x+=dx;r.at.y+=dy;return}
  moveCurveAt(r,t,dx,dy);if(h.kind==='road')resolve();
 }
-function fit(points){
+function straightCurve(a,d){return[copy(a),lerp(a,d,1/3),lerp(a,d,2/3),copy(d)]}
+function straightStroke(points,p){
+ const a=points[0],d=points.at(-1),dx=(d.x-a.x)*width,dy=(d.y-a.y)*height,chord=Math.hypot(dx,dy);
+ // Short marks and loops are ambiguous. Assist only a clear forward stroke.
+ if(chord<24)return false;
+ const tolerance=Math.max(4,Math.min(6,chord*.035)),offset=q=>((q.x-a.x)*width*dy-(q.y-a.y)*height*dx)/chord;
+ let travelled=0,backwards=0,previous=0;
+ for(let i=0;i<points.length;i++){
+  const q=points[i],along=((q.x-a.x)*width*dx+(q.y-a.y)*height*dy)/chord;
+  if(Math.abs(offset(q))>tolerance||along<-2||along>chord+2)return false;
+  if(i){travelled+=screenDistance(points[i-1],q);backwards+=Math.max(0,previous-along)}previous=along;
+ }
+ if(travelled>chord*1.18||backwards>Math.max(2,chord*.02))return false;
+ // A broad, even shallow bend is intentional; alternating finger wobble is not.
+ const bendTolerance=tolerance*.35;
+ for(let i=1;i<16;i++)if(Math.abs(offset(point(p,i/16)))>bendTolerance)return false;
+ return true;
+}
+function fit(points,start,end){
  const a=points[0],d=points[points.length-1],lens=[0];for(let i=1;i<points.length;i++)lens.push(lens[i-1]+screenDistance(points[i-1],points[i]));
  const length=lens.at(-1)||1;let aa=0,ab=0,bb=0,ax=0,ay=0,bx=0,by=0;
  points.forEach((p,i)=>{const t=lens[i]/length,u=1-t,A=3*u*u*t,B=3*u*t*t,x=p.x-u*u*u*a.x-t*t*t*d.x,y=p.y-u*u*u*a.y-t*t*t*d.y;aa+=A*A;ab+=A*B;bb+=B*B;ax+=A*x;ay+=A*y;bx+=B*x;by+=B*y});
- const det=aa*bb-ab*ab;if(Math.abs(det)<1e-8)return[copy(a),lerp(a,d,1/3),lerp(a,d,2/3),copy(d)];
+ const det=aa*bb-ab*ab;
  const clamp=p=>({x:Math.max(-.25,Math.min(1.25,p.x)),y:Math.max(-.25,Math.min(1.25,p.y))});
- return[copy(a),clamp({x:(ax*bb-bx*ab)/det,y:(ay*bb-by*ab)/det}),clamp({x:(bx*aa-ax*ab)/det,y:(by*aa-ay*ab)/det}),copy(d)];
+ const p=Math.abs(det)<1e-8?straightCurve(a,d):[copy(a),clamp({x:(ax*bb-bx*ab)/det,y:(ay*bb-by*ab)/det}),clamp({x:(bx*aa-ax*ab)/det,y:(by*aa-ay*ab)/det}),copy(d)];
+ // Rebuild assisted controls AFTER snapping; translating just one control bows a line.
+ if(straightStroke(points,p))return straightCurve(start||a,end||d);
+ for(const [q,index,control] of [[start,0,1],[end,3,2]])if(q){const dx=q.x-p[index].x,dy=q.y-p[index].y;p[index]=copy(q);p[control].x+=dx;p[control].y+=dy}
+ return p;
 }
 function commitStroke(g,points){
  if(points.length<2)return;save();raw.push(copy(points));
  if(g.placement){features.push({id:id(),type:g.placement,p:fit(points),side:1});placement=null;status(`${types[g.placement].label} drawn. Back to Pen.`);quick(`${types[g.placement].label} added`)}
  else{
-  const start=nearRoad(points[0]),end=nearRoad(points.at(-1)),p=fit(points),road={id:id(),route:!roads.some(r=>r.route),type:'tarmac',p};
-  for(const [hit,index,control,key] of [[start,0,1,'attach'],[end,3,2,'endAttach']])if(hit){const dx=hit.q.x-p[index].x,dy=hit.q.y-p[index].y;p[index]=copy(hit.q);p[control].x+=dx;p[control].y+=dy;road[key]={id:hit.id,t:hit.t}}
+  const start=nearRoad(points[0]);let end=nearRoad(points.at(-1));
+  // A short fork can leave the same road's snap margin without reaching its edge.
+  // Keep its free end instead of snapping both ends onto one junction.
+  if(start&&end&&screenDistance(start.q,end.q)<4&&straightStroke(points,fit(points)))end=null;
+  const p=fit(points,start?.q,end?.q),road={id:id(),route:!roads.some(r=>r.route),type:'tarmac',p};
+  for(const [hit,key] of [[start,'attach'],[end,'endAttach']])if(hit)road[key]={id:hit.id,t:hit.t};
   roads.push(road);status('Tap a road or landmark to edit.');quick(start||end?'Fork added':'Road added');
  }
  selected=null;ink=[];draw();changed();
@@ -202,7 +228,7 @@ function featureButton(type,className){
  let icon;
  if(types[type].kind==='line'){
   icon=element('svg',{class:'tt-feature-sample',viewBox:'0 0 42 26',width:42,height:26,'aria-hidden':'true'});
-  drawLineFeature({type,side:1,p:[{x:.12,y:.62},{x:.36,y:.62},{x:.64,y:.36},{x:.88,y:.36}]},'currentColor',icon,42,26);
+  drawLineFeature({type,side:1,p:[{x:.12,y:.62},{x:.36,y:.62},{x:.64,y:.36},{x:.88,y:.36}]},types[type].color||'currentColor',icon,42,26);
  }else{icon=document.createElement('i');icon.setAttribute('data-lucide',types[type].icon);icon.setAttribute('aria-hidden','true')}
  const label=document.createElement('span');label.textContent=types[type].label;b.append(icon,label);return b;
 }
