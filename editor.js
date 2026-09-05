@@ -1,6 +1,8 @@
 (() => {
 'use strict';
 const root=document.getElementById('tulip-thumb-flow'),find=s=>root.querySelector(s),svg=find('.tt-sketch'),paper=find('.tt-paper'),row=find('.tt-favourites'),NS='http://www.w3.org/2000/svg';
+const GRID_SPACING=24;
+root.style.setProperty('--tt-grid-spacing',`${GRID_SPACING}px`);
 const types={
  house:{label:'House',icon:'house',kind:'point'},tree:{label:'Tree',icon:'tree-deciduous',kind:'point'},gate:{label:'Gate',icon:'fence',kind:'point'},
  bridge:{label:'Bridge',icon:'landmark',kind:'point'},sign:{label:'Sign',icon:'signpost',kind:'point'},pole:{label:'Pole',icon:'utility-pole',kind:'point'},rock:{label:'Rock',icon:'mountain',kind:'point'},church:{label:'Church',icon:'church',kind:'point'},
@@ -113,32 +115,31 @@ function moveHandle(h,dx,dy){
  moveCurveAt(r,t,dx,dy);if(h.kind==='road')resolve();
 }
 function straightCurve(a,d){return[copy(a),lerp(a,d,1/3),lerp(a,d,2/3),copy(d)]}
-function straightStroke(points,p){
+function straightStroke(points){
  const a=points[0],d=points.at(-1),dx=(d.x-a.x)*width,dy=(d.y-a.y)*height,chord=Math.hypot(dx,dy);
- // Short marks and loops are ambiguous. Assist only a clear forward stroke.
- if(chord<24)return false;
- const tolerance=Math.max(4,Math.min(6,chord*.035)),offset=q=>((q.x-a.x)*width*dy-(q.y-a.y)*height*dx)/chord;
- let travelled=0,backwards=0,previous=0;
- for(let i=0;i<points.length;i++){
-  const q=points[i],along=((q.x-a.x)*width*dx+(q.y-a.y)*height*dy)/chord;
-  if(Math.abs(offset(q))>tolerance||along<-2||along>chord+2)return false;
-  if(i){travelled+=screenDistance(points[i-1],q);backwards+=Math.max(0,previous-along)}previous=along;
+ // Use one visible dot-column width, aligned with the direction of the stroke.
+ if(chord<GRID_SPACING)return false;
+ let low=0,high=0,furthest=0;
+ for(const q of points){
+  const x=(q.x-a.x)*width,y=(q.y-a.y)*height,along=(x*dx+y*dy)/chord,across=(x*dy-y*dx)/chord;
+  low=Math.min(low,across);high=Math.max(high,across);
+  if(high-low>GRID_SPACING+1e-6)return false;
+  // Ignore tiny finger jitter, but a deliberate reversal keeps the drawn curve.
+  if(along<furthest-2-1e-6)return false;
+  furthest=Math.max(furthest,along);
  }
- if(travelled>chord*1.18||backwards>Math.max(2,chord*.02))return false;
- // A broad, even shallow bend is intentional; alternating finger wobble is not.
- const bendTolerance=tolerance*.35;
- for(let i=1;i<16;i++)if(Math.abs(offset(point(p,i/16)))>bendTolerance)return false;
  return true;
 }
 function fit(points,start,end){
- const a=points[0],d=points[points.length-1],lens=[0];for(let i=1;i<points.length;i++)lens.push(lens[i-1]+screenDistance(points[i-1],points[i]));
+ const a=points[0],d=points[points.length-1];
+ // Rebuild assisted controls AFTER snapping so the final road stays straight.
+ if(straightStroke(points))return straightCurve(start||a,end||d);
+ const lens=[0];for(let i=1;i<points.length;i++)lens.push(lens[i-1]+screenDistance(points[i-1],points[i]));
  const length=lens.at(-1)||1;let aa=0,ab=0,bb=0,ax=0,ay=0,bx=0,by=0;
  points.forEach((p,i)=>{const t=lens[i]/length,u=1-t,A=3*u*u*t,B=3*u*t*t,x=p.x-u*u*u*a.x-t*t*t*d.x,y=p.y-u*u*u*a.y-t*t*t*d.y;aa+=A*A;ab+=A*B;bb+=B*B;ax+=A*x;ay+=A*y;bx+=B*x;by+=B*y});
  const det=aa*bb-ab*ab;
  const clamp=p=>({x:Math.max(-.25,Math.min(1.25,p.x)),y:Math.max(-.25,Math.min(1.25,p.y))});
  const p=Math.abs(det)<1e-8?straightCurve(a,d):[copy(a),clamp({x:(ax*bb-bx*ab)/det,y:(ay*bb-by*ab)/det}),clamp({x:(bx*aa-ax*ab)/det,y:(by*aa-ay*ab)/det}),copy(d)];
- // Rebuild assisted controls AFTER snapping; translating just one control bows a line.
- if(straightStroke(points,p))return straightCurve(start||a,end||d);
  for(const [q,index,control] of [[start,0,1],[end,3,2]])if(q){const dx=q.x-p[index].x,dy=q.y-p[index].y;p[index]=copy(q);p[control].x+=dx;p[control].y+=dy}
  return p;
 }
@@ -149,7 +150,7 @@ function commitStroke(g,points){
   const start=nearRoad(points[0]);let end=nearRoad(points.at(-1));
   // A short fork can leave the same road's snap margin without reaching its edge.
   // Keep its free end instead of snapping both ends onto one junction.
-  if(start&&end&&screenDistance(start.q,end.q)<4&&straightStroke(points,fit(points)))end=null;
+  if(start&&end&&screenDistance(start.q,end.q)<4&&straightStroke(points))end=null;
   const p=fit(points,start?.q,end?.q),road={id:id(),route:!roads.some(r=>r.route),type:'tarmac',p};
   for(const [hit,key] of [[start,'attach'],[end,'endAttach']])if(hit)road[key]={id:hit.id,t:hit.t};
   roads.push(road);status('Tap a road or landmark to edit.');quick(start||end?'Fork added':'Road added');

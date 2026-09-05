@@ -6,7 +6,7 @@ A white, one-hand roadbook sketchpad with blue controls. No build step or extern
 
 ## Capture a point
 
-Draw the route from its entry dot toward the exit arrow. Small wiggles in a nearly straight stroke settle into a clean straight line when you lift; intentional bends remain cubic curves. Draw a fork from a road and it snaps to that curve; the original road keeps its shape. A brief lift near the previous endpoint continues the stroke.
+Draw the route from its entry dot toward the exit arrow. A stroke that keeps moving forward within a strip one dot-column wide (24 screen pixels) becomes straight when you lift. The strip follows the direction you draw, including diagonals. Wider bends and strokes that turn back remain cubic curves. Straightening is automatic for now. Draw a fork from a road and it snaps to that curve; the original road keeps its shape. A brief lift near the previous endpoint continues the stroke.
 
 Tap a road to edit with a few handles. Tap empty paper to return to Pen. Selected roads offer surface style and Delete. Undo is always in the thumb toolbar, with a quick Undo immediately after drawing. Clear removes the visible sketch and can be undone; text, attachments and original ink stay with the point.
 
